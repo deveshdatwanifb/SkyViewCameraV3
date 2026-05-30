@@ -1,58 +1,80 @@
-#include <iostream>
+#pragma once
+#include <string>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+#include <thread>
+#include <chrono>
 #include <opencv2/opencv.hpp>
-#include <drawing/drawing.h>
-#include <time/time.h>
+#include <capture/capture.h>
 
 namespace skyview {
 
-void detect(cv::Mat frame) {
-    // something
+void get_frame (cv::Mat& frame, std::mutex& mtx, std::queue<cv::Mat>& q,
+                bool& keep_running) 
+
+{
+
+    {
+    
+    std::unique_lock<std::mutex> lock(mtx);
+
+    if (!q.empty()) {
+
+        frame = std::move(q.front());
+        q.pop();
+    
+    }
+
+    } 
+
 }
 
-int drawing_key (0);
+int process_loop (const std::string& streamURL)
 
-int process_loop(std::string streamURL)
 {
-    
-    cv::VideoCapture cap(streamURL);
-
-    double video_fps = cap.get(cv::CAP_PROP_FPS);
-    int delay = static_cast<int>(1000.0 / video_fps);
-
-    std::cout << "Playing at " << video_fps << " fps" << std::endl;
-    
-    if (!cap.isOpened()){
-        std::cerr << "Error: Could not open stream" << std::endl;
-        return -1;
-    }
 
     cv::Mat frame;
     
-    while (true) {
-        
-        bool success;
+    std::queue<cv::Mat> q;
+    std::mutex mtx;
+    std::condition_variable cond_var;
+    
+    bool keep_running {true};
+    
+    std::thread capture_thread(skyview::handle_frame_queue, streamURL, std::ref(q), std::ref(mtx), std::ref(cond_var), std::ref(keep_running));
+    
+    const int ESC_KEY = 27;
 
-        success = cap.read(frame);
-        
-        if (!success || frame.empty()) {
-            std::cerr << "Stream ended or failed to grab frame" << std::endl;
-            break;
+    while (keep_running) {
+
+        skyview::get_frame(frame, std::ref(mtx), std::ref(q), keep_running);
+
+        if (!frame.empty()) {
+
+            cv::imshow("Frame", frame);
+
         }
 
-        std::string timestamp = skyview::get_now_time();
-
-        skyview::draw_time(frame, timestamp);
-        skyview::draw_fps(frame, video_fps);
-
-        cv::imshow("Live stream", frame);
-
-        if (cv::waitKey(delay) ==27) break;
+        if (cv::waitKey(1) == ESC_KEY) {
+        
+            keep_running = false;
+            cond_var.notify_all(); 
+            break;
+        
+        }
 
     }
 
-    cap.release();
+    if (capture_thread.joinable()) {
+
+        capture_thread.join();
+    
+    }
+    
     cv::destroyAllWindows();
-    return 0;
+    return 1;
 
 }
 
