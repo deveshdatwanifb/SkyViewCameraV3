@@ -44,7 +44,7 @@ inline void drawBoundingBoxes (cv::Mat& image,
 }
 
 
-void draw_time (cv::Mat frame, std::string timestamp) 
+void draw_string_time (cv::Mat frame, std::string timestamp) 
 {
 
     int fontFace = cv::FONT_HERSHEY_SIMPLEX;

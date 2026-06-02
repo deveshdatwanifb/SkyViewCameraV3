@@ -11,7 +11,7 @@
 
 namespace skyview {
 
-void get_frame (cv::Mat& frame, std::mutex& mtx, std::queue<cv::Mat>& q,
+void get_frame_from_queue (cv::Mat& frame, std::mutex& mtx, std::queue<cv::Mat>& q,
                 bool& keep_running) 
 
 {
@@ -49,9 +49,11 @@ int process_loop (const std::string& streamURL)
 
     while (keep_running) {
 
-        skyview::get_frame(frame, std::ref(mtx), std::ref(q), keep_running);
+        skyview::get_frame_from_queue(frame, std::ref(mtx), std::ref(q), keep_running);
 
         if (!frame.empty()) {
+
+            std::string timestamp(skyview::get_now_time_in_stirng());
 
             cv::imshow("Frame", frame);
 
