@@ -1,4 +1,3 @@
-#pragma once
 #include <string>
 #include <queue>
 #include <mutex>
@@ -11,73 +10,76 @@
 
 namespace skyview {
 
-void get_frame_from_queue (cv::Mat& frame, std::mutex& mtx, std::queue<cv::Mat>& q,
-                bool& keep_running) 
+class Processor {
 
-{
-
-    {
-    
-    std::unique_lock<std::mutex> lock(mtx);
-
-    if (!q.empty()) {
-
-        frame = std::move(q.front());
-        q.pop();
-    
-    }
-
-    } 
-
-}
-
-int process_loop (const std::string& streamURL)
-
-{
+public:
 
     cv::Mat frame;
-    
     std::queue<cv::Mat> q;
     std::mutex mtx;
     std::condition_variable cond_var;
     
-    bool keep_running {true};
-    
-    std::thread capture_thread(skyview::handle_frame_queue, streamURL, std::ref(q), std::ref(mtx), std::ref(cond_var), std::ref(keep_running));
-    
     const int ESC_KEY = 27;
 
-    while (keep_running) {
+    Processor (const std::string& stream) {
 
-        skyview::get_frame_from_queue(frame, std::ref(mtx), std::ref(q), keep_running);
+        streamUrl = stream;
+    
+    }
 
-        if (!frame.empty()) {
+    void get_frame_from_queue (cv::Mat& frame, std::mutex& mtx, std::queue<cv::Mat>& q, bool& keep_running) {
 
-            std::string timestamp(skyview::get_now_time_in_stirng());
+        {
+        
+        std::unique_lock<std::mutex> lock(mtx);
 
-            cv::imshow("Frame", frame);
+        if (!q.empty()) {
 
+            frame = std::move(q.front());
+            q.pop();
+        
         }
 
-        if (cv::waitKey(1) == ESC_KEY) {
-        
-            keep_running = false;
-            cond_var.notify_all(); 
-            break;
-        
-        }
+        } 
 
     }
 
-    if (capture_thread.joinable()) {
+    cv::Mat process_loop (cv::Mat& mat, std::mutex& mtx2) {
+        
+        bool keep_running {true};
+        
+        std::thread capture_thread(skyview::handle_frame_queue, streamUrl, std::ref(q), std::ref(mtx), std::ref(cond_var), std::ref(keep_running));
 
-        capture_thread.join();
-    
+        while (keep_running) {
+
+            get_frame_from_queue(frame, std::ref(mtx), std::ref(q), keep_running);
+            
+            {
+
+                std::unique_lock locker(mtx2);
+                mat = frame;
+
+            }
+
+
+        }
+
+        if (capture_thread.joinable()) {
+
+            capture_thread.join();
+        
+        }
+        
+        return frame;
+
     }
-    
-    cv::destroyAllWindows();
-    return 1;
 
-}
+private:
+
+    cv::VideoCapture cap;
+    
+    std::string streamUrl;
+
+};
 
 }

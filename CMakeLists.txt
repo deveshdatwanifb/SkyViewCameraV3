@@ -6,7 +6,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(OpenCV REQUIRED)
 find_package(Threads REQUIRED)
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
 add_executable(processor apps/processor/main.cpp)
 target_include_directories(processor PRIVATE libraries)
 target_link_libraries(processor PRIVATE ${OpenCV_LIBS})
+target_link_libraries(processor PRIVATE Qt6::Widgets)

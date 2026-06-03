@@ -9,15 +9,10 @@
 
 namespace skyview {
 
-void handle_frame_queue(const std::string& streamURL, 
-                               std::queue<cv::Mat>& q, 
-                               std::mutex& mtx, 
-                               std::condition_variable& cond_var,
-                               bool& keep_running) 
-{
+void handle_frame_queue(const std::string& streamURL, std::queue<cv::Mat>& q, std::mutex& mtx, std::condition_variable& cond_var, bool& keep_running) {
+    
     cv::VideoCapture cap(streamURL);
 
-    
     std::cout << "Launching capture thread" << std::endl;
     std::cout << "Capture start time" << skyview::get_now_time_in_string() << std::endl;
     
@@ -48,12 +43,19 @@ void handle_frame_queue(const std::string& streamURL,
         }
 
         else if (frame.empty()) {
-        
-            std::cout << "Cannot grab frame" << std::endl;
-            keep_running = false;
-            break;
+
+            {
+            
+                std::unique_lock lock(mtx);
+                std::cout << "Cannot grab frame / end of stream" << std::endl;
+                keep_running = false;
+                
+                break;
+            
+            }
         
         }
+    
     }
 
     cap.release();
