@@ -40,7 +40,7 @@
                     <canvas id="annotationCanvas" class="cursor-crosshair"></canvas>
                 </div>
                 <div class="absolute bottom-3 text-[11px] tracking-wide text-[#c4c7c5] bg-[#1e1e24]/90 px-4 py-1.5 rounded-full border border-[#444746] backdrop-blur shadow-sm">
-                    Scroll to Zoom • Hold Right-Click + Drag to Move • Edit Mode: Drag bounds to scale, press <span class="bg-[#333538] px-1.5 py-0.5 rounded text-white font-mono font-bold">Delete</span> to remove
+                    Scroll to Zoom • Hold Right-Click + Drag to Move • Edit Mode: Drag bounds to scale, press <span class="bg-[#333538] px-1.5 py-0.5 rounded text-white font-mono font-bold">Delete</span> / <span class="bg-[#333538] px-1.5 py-0.5 rounded text-white font-mono font-bold">Backspace</span> to remove
                 </div>
             </main>
         </div>
@@ -153,6 +153,50 @@
 
         canvas.addEventListener('contextmenu', e => e.preventDefault());
 
+        document.getElementById('objectLabel').addEventListener('input', (e) => {
+            if (selectedItem && currentMode === 'edit' && selectedItem.x1 !== undefined) {
+                selectedItem.label = e.target.value;
+                renderCanvas();
+            }
+        });
+
+        document.getElementById('keypointTypeSelect').addEventListener('change', (e) => {
+            if (selectedItem && currentMode === 'edit' && selectedItem.visibility !== undefined) {
+                selectedItem.label = e.target.value;
+                renderCanvas();
+            }
+        });
+
+        document.querySelectorAll('input[name="kpVisGroup"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (selectedItem && currentMode === 'edit' && selectedItem.visibility !== undefined) {
+                    selectedItem.visibility = parseInt(e.target.value);
+                    renderCanvas();
+                }
+            });
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return;
+            
+            if ((e.key === 'Delete' || e.key === 'Backspace') && currentMode === 'edit' && selectedItem) {
+                e.preventDefault();
+                if (selectedItem.x1 !== undefined) {
+                    bboxes = bboxes.filter(box => box !== selectedItem);
+                } else {
+                    keypoints = keypoints.filter(pt => pt !== selectedItem);
+                }
+                selectedItem = null;
+                editAction = 'none';
+                setMode('edit'); 
+                renderCanvas();
+            }
+        });
+
+        document.getElementById('imageTags').addEventListener('input', () => {
+            updateJsonPreview();
+        });
+
         function setMode(mode) {
             currentMode = mode;
             if (mode !== 'edit') { selectedItem = null; editAction = 'none'; }
@@ -246,7 +290,6 @@
             
             let cocoAnnotations = [];
 
-            // Grouping loop maps floating keypoints into parent bounding boxes geometrically
             bboxes.forEach((box, index) => {
                 let x = Math.round(box.x1);
                 let y = Math.round(box.y1);
@@ -257,7 +300,7 @@
                 let countedKps = 0;
 
                 keypoints.forEach(kp => {
-                    if (kp.x >= box.x1 && kp.x <= box.x2 && kp.kp.y >= box.y1 && kp.y <= box.y2) {
+                    if (kp.x >= box.x1 && kp.x <= box.x2 && kp.y >= box.y1 && kp.y <= box.y2) {
                         let idx = COCO_KP_ORDER.indexOf(kp.label);
                         if (idx !== -1) {
                             kpArray[idx * 3] = Math.round(kp.x);
@@ -509,4 +552,4 @@
         }
     </script>
 </body>
-</html></html></html>
+</html></html>
