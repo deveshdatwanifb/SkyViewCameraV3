@@ -39,7 +39,6 @@ def open_native_folder_browser():
 def home():
     return render_template('index.html')
 
-
 @app.route('/select_folder', methods=['POST'])
 def select_folder():
     global DATA_DIR
@@ -99,6 +98,7 @@ def save():
         
     return jsonify({"status": "success", "date": timestamp})
 
+from botocore.exceptions import NoCredentialsError, ClientError
 
 @app.route('/sync_s3', methods=['POST'])
 def sync_s3():
