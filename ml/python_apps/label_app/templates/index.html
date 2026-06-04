@@ -5,7 +5,7 @@
     <title>FyveBy Annotator (COCO Edition)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        #canvasContainer canvas { max-width: 100%; max-height: 55vh; object-fit: contain; }
+        #canvasContainer canvas { display: block; width: 100%; height: 100%; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #131314; }
         ::-webkit-scrollbar-thumb { background: #333538; border-radius: 4px; }
@@ -17,7 +17,7 @@
     <header class="bg-[#1e1e24] p-4 border-b border-[#444746] flex justify-between items-center shadow-sm z-10">
         <div class="flex items-center gap-4">
             <img src="static/logo.svg" alt="FyveBy Logo" class="h-8 w-auto object-contain min-w-[130px]">
-            <h1 class="text-base font-medium tracking-wide text-[#e3e3e3]">FyveBy Annotator</h1>
+            <h1 class="text-base font-medium tracking-wide text-[#e3e3e3]">FyveBy Label App</h1>
         </div>
         <div class="text-xs text-[#c4c7c5] font-mono bg-[#131314] px-3 py-1.5 rounded-lg border border-[#444746]" id="folderDisplay">No folder selected</div>
     </header>
@@ -36,11 +36,11 @@
             </aside>
 
             <main class="flex-grow bg-[#0e0e10] p-4 flex flex-col items-center justify-center relative overflow-hidden">
-                <div id="canvasContainer" class="border border-[#444746] rounded-xl bg-[#131314] shadow-sm flex items-center justify-center overflow-hidden p-1">
+                <div id="canvasContainer" class="border border-[#444746] rounded-xl bg-[#131314] shadow-sm flex items-center justify-center overflow-hidden p-1 w-full h-full max-h-[54vh]">
                     <canvas id="annotationCanvas" class="cursor-crosshair"></canvas>
                 </div>
                 <div class="absolute bottom-3 text-[11px] tracking-wide text-[#c4c7c5] bg-[#1e1e24]/90 px-4 py-1.5 rounded-full border border-[#444746] backdrop-blur shadow-sm">
-                    Scroll to Zoom • Hold Right-Click + Drag to Move • Edit Mode: Drag bounds to scale, press <span class="bg-[#333538] px-1.5 py-0.5 rounded text-white font-mono font-bold">Delete</span> / <span class="bg-[#333538] px-1.5 py-0.5 rounded text-white font-mono font-bold">Backspace</span> to remove
+                    Scroll to Zoom • Hold Right-Click + Drag to Move • Edit Mode: Scale items, press <span class="bg-[#333538] px-1.5 py-0.5 rounded text-white font-mono font-bold">Delete</span> / <span class="bg-[#333538] px-1.5 py-0.5 rounded text-white font-mono font-bold">Backspace</span> to clear selection
                 </div>
             </main>
         </div>
@@ -52,21 +52,31 @@
                     
                     <div class="flex flex-col gap-2">
                         <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Drawing Mode</label>
-                        <div class="grid grid-cols-3 gap-1 mt-1">
-                            <button id="toolBox" onclick="setMode('box')" class="bg-[#0b57d0] border border-transparent text-white py-2 rounded-lg font-medium text-[11px] tracking-wide shadow-sm transition-all duration-150">▢ Box</button>
-                            <button id="toolPoint" onclick="setMode('point')" class="bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-[11px] tracking-wide hover:bg-[#202124] transition-all duration-150">☉ Point</button>
-                            <button id="toolEdit" onclick="setMode('edit')" class="bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-[11px] tracking-wide hover:bg-[#202124] transition-all duration-150">⌖ Edit</button>
+                        <div class="grid grid-cols-4 gap-1 mt-1">
+                            <button id="toolBox" onclick="setMode('box')" class="bg-[#0b57d0] border border-transparent text-white py-2 rounded-lg font-medium text-[10px] tracking-wide shadow-sm transition-all duration-150">▢ Box</button>
+                            <button id="toolPoint" onclick="setMode('point')" class="bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-[10px] tracking-wide hover:bg-[#202124] transition-all duration-150">☉ Point</button>
+                            <button id="toolEdit" onclick="setMode('edit')" class="bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-[10px] tracking-wide hover:bg-[#202124] transition-all duration-150">⌖ Edit</button>
+                            <button id="toolCrop" onclick="setMode('crop')" class="bg-[#131314] border border-orange-500/30 text-orange-400 py-2 rounded-lg font-medium text-[10px] tracking-wide hover:bg-[#202124] transition-all duration-150">✂️ Crop</button>
                         </div>
                     </div>
 
-                    <div class="flex flex-col gap-1.5" id="boxConfigArea">
-                        <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Box Instance Category</label>
-                        <input type="text" id="objectLabel" value="airplane" class="w-full bg-[#131314] border border-[#444746] rounded-lg px-3 py-2 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] transition-colors mt-1">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Asset Management Actions</label>
+                        <div class="grid grid-cols-3 gap-1 mt-1">
+                            <button id="executeCropBtn" disabled onclick="executeImgCrop()" class="bg-[#131314] border border-[#444746] text-[#888888] py-2 rounded-lg font-medium text-[11px] cursor-not-allowed transition">Cut Crop</button>
+                            <button id="resizeBtn" disabled onclick="executeImgResize()" class="bg-[#131314] border border-[#444746] text-[#888888] py-2 rounded-lg font-medium text-[11px] cursor-not-allowed transition">📐 Resize</button>
+                            <button id="deleteBtn" disabled onclick="executeImgDelete()" class="bg-[#131314] border border-[#444746] text-[#888888] py-2 rounded-lg font-medium text-[11px] cursor-not-allowed transition">🗑️ Delete</button>
+                        </div>
                     </div>
 
-                    <div class="flex flex-col gap-1.5" id="keypointConfigArea">
-                        <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Aircraft Keypoint Selection</label>
-                        <select id="keypointTypeSelect" class="w-full bg-[#131314] border border-[#444746] rounded-lg px-3 py-2 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] transition-colors mt-1">
+                    <div class="flex flex-col gap-1.5 transition-all duration-200" id="boxConfigArea">
+                        <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Box Instance Category</label>
+                        <input type="text" id="objectLabel" value="airplane" class="w-full bg-[#131314] border border-[#444746] rounded-lg px-3 py-2 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] transition-colors mt-1 disabled:cursor-not-allowed disabled:bg-[#18181b]">
+                    </div>
+
+                    <div class="flex flex-col gap-1.5 transition-all duration-200" id="keypointConfigArea">
+                        <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Aircraft Keypoint & COCO Visibility</label>
+                        <select id="keypointTypeSelect" class="w-full bg-[#131314] border border-[#444746] rounded-lg px-3 py-2 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] transition-colors mt-1 disabled:cursor-not-allowed disabled:bg-[#18181b]">
                             <option value="nose">Nose</option>
                             <option value="left_wing_tip">Left Wing Tip</option>
                             <option value="right_wing_tip">Right Wing Tip</option>
@@ -79,36 +89,37 @@
                         <div id="visibilitySubBlock" class="flex items-center justify-between mt-2 bg-[#131314] p-1.5 rounded-lg border border-[#444746]">
                             <span class="text-[10px] font-medium uppercase text-[#c4c7c5]">COCO Vis:</span>
                             <label class="inline-flex items-center text-[11px] gap-0.5 text-[#4af2a1] cursor-pointer">
-                                <input type="radio" name="kpVisGroup" value="2" checked> 2 (Visible)
+                                <input type="radio" name="kpVisGroup" value="2" checked class="accent-[#0b57d0]"> 2 (Visible)
                             </label>
                             <label class="inline-flex items-center text-[11px] gap-0.5 text-[#eab308] cursor-pointer">
-                                <input type="radio" name="kpVisGroup" value="1"> 1 (Occluded)
+                                <input type="radio" name="kpVisGroup" value="1" class="accent-[#0b57d0]"> 1 (Occluded)
                             </label>
                         </div>
-                    </div>
-
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Image Meta Tags <span class="text-red-400 font-bold">*</span></label>
-                        <input type="text" id="imageTags" placeholder="e.g. LAX, clear, arrival" class="w-full bg-[#131314] border border-[#444746] rounded-lg px-3 py-2 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] transition-colors mt-1">
                     </div>
                 </div>
 
                 <div class="flex items-center justify-between border-t border-[#444746] pt-3 mt-2">
-                    <div class="flex items-center gap-3 bg-[#131314] px-3 py-1.5 rounded-lg border border-[#444746]">
-                        <input type="text" id="s3BucketInput" placeholder="S3 Bucket" class="bg-transparent text-xs text-[#e3e3e3] focus:outline-none w-36">
-                        <input type="text" id="s3PrefixInput" placeholder="Prefix (Optional)" class="bg-transparent text-xs text-[#e3e3e3] focus:outline-none w-32 border-l border-[#444746] pl-3">
-                        <button id="s3SyncButton" onclick="triggerS3CloudSync()" class="text-[#74a0fa] hover:text-[#a8c7fa] font-semibold text-xs tracking-wide ml-2 transition">
-                            ☁️ Sync Cloud
-                        </button>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-3 bg-[#131314] px-3 py-1.5 rounded-lg border border-[#444746]">
+                            <input type="text" id="s3BucketInput" placeholder="S3 Bucket" class="bg-transparent text-xs text-[#e3e3e3] focus:outline-none w-36">
+                            <input type="text" id="s3PrefixInput" placeholder="Prefix (Optional)" class="bg-transparent text-xs text-[#e3e3e3] focus:outline-none w-32 border-l border-[#444746] pl-3">
+                            <button id="s3SyncButton" onclick="triggerS3CloudSync()" class="text-[#74a0fa] hover:text-[#a8c7fa] font-semibold text-xs tracking-wide ml-2 transition cursor-pointer">
+                                ☁️ Sync Cloud
+                            </button>
+                        </div>
+                        <div class="flex flex-col gap-0.5 pl-2">
+                            <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Image Meta Tags <span class="text-red-400 font-bold">*</span></label>
+                            <input type="text" id="imageTags" placeholder="e.g. LAX, clear, arrival" class="bg-[#131314] border border-[#444746] rounded-lg px-3 py-1 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] transition-colors w-48">
+                        </div>
                     </div>
 
                     <div class="flex items-center gap-2">
                         <div class="bg-[#131314] px-3 py-2 rounded-lg border border-[#444746] text-xs font-mono text-[#c4c7c5]">
                             Saved: <span id="annotationDate" class="text-[#e3e3e3]">Not annotated yet</span>
                         </div>
-                        <button onclick="resetViewport()" class="bg-[#131314] hover:bg-[#202124] border border-[#444746] text-[#e3e3e3] px-4 py-2 rounded-lg font-medium text-xs tracking-wide transition">Reset View</button>
-                        <button onclick="clearCurrentAnnotations()" class="bg-[#131314] hover:bg-red-950/20 border border-red-900/30 text-red-400 px-4 py-2 rounded-lg font-medium text-xs tracking-wide transition">Clear Canvas</button>
-                        <button onclick="saveAnnotationPayload()" class="bg-[#0b57d0] hover:bg-[#1b66c9] text-white font-medium px-6 py-2 rounded-lg text-xs tracking-wide shadow-sm transition">Save Data</button>
+                        <button onclick="resetViewport()" class="bg-[#131314] hover:bg-[#202124] border border-[#444746] text-[#e3e3e3] px-4 py-2 rounded-lg font-medium text-xs tracking-wide transition cursor-pointer">Reset View</button>
+                        <button onclick="clearCurrentAnnotations()" class="bg-[#131314] hover:bg-[#202124] border border-[#444746] text-[#c4c7c5] px-4 py-2 rounded-lg font-medium text-xs tracking-wide transition cursor-pointer">Clear Canvas</button>
+                        <button onclick="saveAnnotationPayload()" class="bg-[#0b57d0] hover:bg-[#1b66c9] text-white font-medium px-6 py-2 rounded-lg text-xs tracking-wide shadow-sm transition cursor-pointer">Save Data</button>
                     </div>
                 </div>
             </section>
@@ -128,6 +139,9 @@
         let startX, startY;
         let latestImgX, latestImgY;
         let startPanX, startPanY;
+        
+        // 🔴 MANDATORY IMMUTABLE WORKSPACE STATE ANCHOR
+        let currentWorkspace = null;
         let selectedFile = null;
         let localStore = {}; 
 
@@ -141,6 +155,10 @@
         let editAction = 'none';
         let dragOffsetX = 0;
         let dragOffsetY = 0;
+
+        let manualCropBox = null;
+        let currentMouseCanvasX = null;
+        let currentMouseCanvasY = null;
 
         const COCO_KP_ORDER = [
             "nose", "left_wing_tip", "right_wing_tip", "tail_top_corner",
@@ -200,33 +218,71 @@
         function setMode(mode) {
             currentMode = mode;
             if (mode !== 'edit') { selectedItem = null; editAction = 'none'; }
+            if (mode !== 'crop') { manualCropBox = null; }
             
             const activeClass = "bg-[#0b57d0] border border-transparent text-white py-2 rounded-lg font-medium text-xs tracking-wide shadow-sm transition-all duration-150";
             const inactiveClass = "bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-xs tracking-wide hover:bg-[#202124] transition-all duration-150";
-            
+            const inactiveCropClass = "bg-[#131314] border border-orange-500/30 text-orange-400 py-2 rounded-lg font-medium text-xs tracking-wide hover:bg-[#202124] transition-all duration-150";
+            const activeCropClass = "bg-orange-600 border border-transparent text-white py-2 rounded-lg font-medium text-xs tracking-wide shadow-sm transition-all duration-150";
+
             document.getElementById('toolBox').className = mode === 'box' ? activeClass : inactiveClass;
             document.getElementById('toolPoint').className = mode === 'point' ? activeClass : inactiveClass;
             document.getElementById('toolEdit').className = mode === 'edit' ? activeClass : inactiveClass;
+            document.getElementById('toolCrop').className = mode === 'crop' ? activeCropClass : inactiveCropClass;
 
             const boxArea = document.getElementById('boxConfigArea');
             const kpArea = document.getElementById('keypointConfigArea');
+            const boxInput = document.getElementById('objectLabel');
+            const kpSelect = document.getElementById('keypointTypeSelect');
+            const visRadios = document.querySelectorAll('input[name="kpVisGroup"]');
+
+            boxInput.disabled = true; kpSelect.disabled = true; visRadios.forEach(r => r.disabled = true);
+            boxArea.style.opacity = "0.4"; kpArea.style.opacity = "0.4";
 
             if (mode === 'box') {
-                boxArea.style.opacity = "1"; kpArea.style.opacity = "0.4";
+                boxArea.style.opacity = "1"; boxInput.disabled = false;
             } else if (mode === 'point') {
-                boxArea.style.opacity = "0.4"; kpArea.style.opacity = "1";
+                kpArea.style.opacity = "1"; kpSelect.disabled = false; visRadios.forEach(r => r.disabled = false);
             } else if (mode === 'edit') {
-                boxArea.style.opacity = "1"; kpArea.style.opacity = "1";
                 if (selectedItem) {
                     if (selectedItem.x1 !== undefined) {
-                        document.getElementById('objectLabel').value = selectedItem.label;
+                        boxArea.style.opacity = "1"; boxInput.disabled = false;
+                        boxInput.value = selectedItem.label;
                     } else {
-                        document.getElementById('keypointTypeSelect').value = selectedItem.label;
-                        document.querySelector(`input[name="kpVisGroup"][value="${selectedItem.visibility}"]`).checked = true;
+                        kpArea.style.opacity = "1"; kpSelect.disabled = false; visRadios.forEach(r => r.disabled = false);
+                        kpSelect.value = selectedItem.label;
+                        const targetRadio = document.querySelector(`input[name="kpVisGroup"][value="${selectedItem.visibility || 2}"]`);
+                        if (targetRadio) targetRadio.checked = true;
                     }
                 }
             }
+            toggleCropButtonState();
             renderCanvas();
+        }
+
+        function toggleCropButtonState() {
+            const executeCropBtn = document.getElementById('executeCropBtn');
+            if (currentMode === 'crop' && manualCropBox) {
+                executeCropBtn.disabled = false;
+                executeCropBtn.className = "bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium text-[11px] cursor-pointer transition shadow-sm";
+            } else {
+                executeCropBtn.disabled = true;
+                executeCropBtn.className = "bg-[#131314] border border-[#444746] text-[#888888] py-2 rounded-lg font-medium text-[11px] cursor-not-allowed transition";
+            }
+        }
+
+        function toggleAssetActionButtons(enable) {
+            const resizeBtn = document.getElementById('resizeBtn');
+            const deleteBtn = document.getElementById('deleteBtn');
+            const disabledStyle = "bg-[#131314] border border-[#444746] text-[#888888] py-2 rounded-lg font-medium text-[11px] cursor-not-allowed transition";
+
+            if (enable) {
+                resizeBtn.disabled = false; resizeBtn.className = "bg-[#131314] border border-[#444746] text-[#c4c7c5] hover:bg-[#202124] hover:text-white py-2 rounded-lg font-medium text-[11px] cursor-pointer transition";
+                deleteBtn.disabled = false; deleteBtn.className = "bg-[#131314] border border-red-900/40 text-red-400 hover:bg-red-950/40 py-2 rounded-lg font-medium text-[11px] cursor-pointer transition";
+            } else {
+                resizeBtn.disabled = true; resizeBtn.className = disabledStyle;
+                deleteBtn.disabled = true; deleteBtn.className = disabledStyle;
+            }
         }
 
         async function selectFolder() {
@@ -234,20 +290,26 @@
             const data = await res.json();
             if(data.status === 'cancelled') return;
 
+            // Anchor the absolute path in browser memory space
+            currentWorkspace = data.folder;
             document.getElementById('folderDisplay').innerText = data.folder;
             localStore = data.annotations;
-            
+            rebuildWorkspaceGallery(data.images);
+        }
+
+        function rebuildWorkspaceGallery(imagesArray) {
             const thumbBox = document.getElementById('thumbnailContainer');
             thumbBox.innerHTML = '';
 
-            data.images.forEach(img => {
+            imagesArray.forEach(img => {
                 const div = document.createElement('div');
                 div.className = "flex items-center gap-3 p-1.5 rounded-lg bg-[#131314] hover:bg-[#202124] cursor-pointer transition border border-transparent";
                 div.id = `thumb-${img}`;
                 div.onclick = () => focusImage(img);
 
                 const thumb = document.createElement('img');
-                thumb.src = `/image/${img}`;
+                // Stream using explicit queries to avoid process reload cache wipes
+                thumb.src = `/image/${img}?workspace=${encodeURIComponent(currentWorkspace)}&t=${new Date().getTime()}`;
                 thumb.className = "w-10 h-10 object-cover rounded-lg shadow-inner bg-[#0e0e10]";
 
                 const label = document.createElement('span');
@@ -259,45 +321,129 @@
                 thumbBox.appendChild(div);
             });
 
-            if(data.images.length > 0) focusImage(data.images[0]);
+            if(imagesArray.length > 0) {
+                toggleAssetActionButtons(true);
+                if (!selectedFile || !imagesArray.includes(selectedFile)) {
+                    focusImage(imagesArray[0]);
+                } else {
+                    focusImage(selectedFile);
+                }
+            } else {
+                selectedFile = null; toggleAssetActionButtons(false);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                document.getElementById('jsonPreview').textContent = '';
+            }
         }
 
         function focusImage(filename) {
             if(selectedFile) { document.getElementById(`thumb-${selectedFile}`)?.classList.remove('border-[#0b57d0]', 'bg-[#202124]'); }
-            selectedFile = filename; selectedItem = null; editAction = 'none';
+            selectedFile = filename; selectedItem = null; editAction = 'none'; manualCropBox = null;
             document.getElementById(`thumb-${filename}`)?.classList.add('border-[#0b57d0]', 'bg-[#202124]');
 
-            imgInstance.src = `/image/${filename}`;
+            imgInstance.src = `/image/${filename}?workspace=${encodeURIComponent(currentWorkspace)}&t=${new Date().getTime()}`;
             imgInstance.onload = () => {
-                canvas.width = imgInstance.naturalWidth; canvas.height = imgInstance.naturalHeight;
-                scale = 1.0; panX = 0; panY = 0;
-
+                resetViewport();
                 const record = localStore[filename] || { bboxes: [], keypoints: [], tags: [], date: "Not annotated yet" };
                 bboxes = record.bboxes || [];
                 keypoints = record.keypoints || [];
                 document.getElementById('imageTags').value = (record.tags || []).join(', ');
                 document.getElementById('annotationDate').innerText = record.date || "Not annotated yet";
-                
                 setMode(currentMode);
             };
         }
 
-        function resetViewport() { scale = 1.0; panX = 0; panY = 0; renderCanvas(); }
+        function resetViewport() {
+            if (!selectedFile || !imgInstance.naturalWidth) return;
+            const container = document.getElementById('canvasContainer');
+            const targetWidth = container.clientWidth - 8;
+            const targetHeight = container.clientHeight - 8;
+            
+            canvas.width = targetWidth; canvas.height = targetHeight;
+            scale = Math.min(targetWidth / imgInstance.naturalWidth, targetHeight / imgInstance.naturalHeight) * 0.95;
+            panX = (targetWidth - imgInstance.naturalWidth * scale) / 2;
+            panY = (targetHeight - imgInstance.naturalHeight * scale) / 2;
+            renderCanvas();
+        }
+
+        async function executeImgCrop() {
+            if (!manualCropBox || !selectedFile) return;
+            const rawTags = document.getElementById('imageTags').value;
+            const cleanTags = rawTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+            const response = await fetch('/transform_image', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    workspace: currentWorkspace,
+                    filename: selectedFile, action: 'crop', 
+                    coords: [manualCropBox.x1, manualCropBox.y1, manualCropBox.x2, manualCropBox.y2], 
+                    bboxes: bboxes, keypoints: keypoints, tags: cleanTags 
+                })
+            });
+            const data = await response.json();
+
+            if (response.ok && data.status === 'success') {
+                bboxes = data.bboxes;
+                keypoints = data.keypoints;
+                manualCropBox = null;
+                localStore[selectedFile] = { bboxes, keypoints, tags: cleanTags, date: data.date };
+                focusImage(selectedFile);
+            } else {
+                alert("❌ Crop Error Notification:\n\n" + (data.message || "Rejected."));
+            }
+        }
+
+        async function executeImgResize() {
+            if (!selectedFile) return;
+            const targetWidth = prompt("Enter target pixel width:", imgInstance.naturalWidth);
+            if (!targetWidth || isNaN(targetWidth)) return;
+            const rawTags = document.getElementById('imageTags').value;
+            const cleanTags = rawTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+            const response = await fetch('/transform_image', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workspace: currentWorkspace, filename: selectedFile, action: 'resize', width: parseInt(targetWidth), bboxes: bboxes, keypoints: keypoints, tags: cleanTags })
+            });
+            const data = await response.json();
+
+            if (response.ok && data.status === 'success') {
+                bboxes = data.bboxes;
+                keypoints = data.keypoints;
+                selectedItem = null;
+                localStore[selectedFile] = { bboxes, keypoints, tags: cleanTags, date: data.date };
+                focusImage(selectedFile);
+            } else {
+                alert("❌ Resize Error Notification:\n\n" + data.message);
+            }
+        }
+
+        async function executeImgDelete() {
+            if (!selectedFile) return;
+            if (!confirm(`⚠️ Permanently wipe local tracking files for '${selectedFile}'?`)) return;
+
+            const oldFilename = selectedFile;
+            const response = await fetch('/delete_image', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ workspace: currentWorkspace, filename: oldFilename })
+            });
+
+            if (response.ok) {
+                delete localStore[oldFilename];
+                // Reload via client state parameter configurations
+                const res = await fetch('/select_folder', { method: 'POST' });
+                const freshData = await res.json();
+                selectedFile = null; rebuildWorkspaceGallery(freshData.images || []);
+            }
+        }
 
         function generateCOCORecords() {
             const rawTags = document.getElementById('imageTags').value;
             const cleanTags = rawTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
-            
             let cocoAnnotations = [];
 
             bboxes.forEach((box, index) => {
-                let x = Math.round(box.x1);
-                let y = Math.round(box.y1);
-                let width = Math.round(box.x2 - box.x1);
-                let height = Math.round(box.y2 - box.y1);
-
-                let kpArray = new Array(COCO_KP_ORDER.length * 3).fill(0);
-                let countedKps = 0;
+                let x = Math.round(box.x1), y = Math.round(box.y1);
+                let width = Math.round(box.x2 - box.x1), height = Math.round(box.y2 - box.y1);
+                let kpArray = new Array(COCO_KP_ORDER.length * 3).fill(0), countedKps = 0;
 
                 keypoints.forEach(kp => {
                     if (kp.x >= box.x1 && kp.x <= box.x2 && kp.y >= box.y1 && kp.y <= box.y2) {
@@ -312,18 +458,13 @@
                 });
 
                 cocoAnnotations.push({
-                    id: index + 1,
-                    category_id: 1, 
-                    bbox: [x, y, width, height],
-                    area: width * height,
-                    keypoints: kpArray,
-                    num_keypoints: countedKps,
-                    iscrowd: 0
+                    id: index + 1, category_id: 1, bbox: [x, y, width, height],
+                    area: width * height, keypoints: kpArray, num_keypoints: countedKps, iscrowd: 0
                 });
             });
 
             return {
-                image: { file_name: selectedFile || "", width: canvas.width, height: canvas.height, tags: cleanTags },
+                image: { file_name: selectedFile || "", width: imgInstance.naturalWidth, height: imgInstance.naturalHeight, tags: cleanTags },
                 annotations: cocoAnnotations
             };
         }
@@ -380,17 +521,38 @@
                 ctx.strokeRect(startX, startY, latestImgX - startX, latestImgY - startY);
             }
 
+            if (currentMode === 'crop' && manualCropBox) {
+                ctx.strokeStyle = '#f97316'; ctx.lineWidth = 3.0 / scale;
+                ctx.setLineDash([6 / scale, 4 / scale]);
+                ctx.strokeRect(manualCropBox.x1, manualCropBox.y1, manualCropBox.x2 - manualCropBox.x1, manualCropBox.y2 - manualCropBox.y1);
+                ctx.setLineDash([]);
+            } else if (isDrawing && currentMode === 'crop') {
+                ctx.strokeStyle = '#f97316'; ctx.lineWidth = 2.5 / scale;
+                ctx.setLineDash([6 / scale, 4 / scale]);
+                ctx.strokeRect(startX, startY, latestImgX - startX, latestImgY - startY);
+                ctx.setLineDash([]);
+            }
+
             ctx.restore();
+
+            if (currentMouseCanvasX !== null && currentMouseCanvasY !== null && ['box', 'point', 'crop'].includes(currentMode)) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(124, 255, 12, 1.0)'; 
+                ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
+                ctx.beginPath(); ctx.moveTo(0, currentMouseCanvasY); ctx.lineTo(canvas.width, currentMouseCanvasY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(currentMouseCanvasX, 0); ctx.lineTo(currentMouseCanvasX, canvas.height); ctx.stroke();
+                ctx.restore();
+            }
             updateJsonPreview();
         }
 
         function fetchRelativeCoords(e) {
             const rect = canvas.getBoundingClientRect();
+            const canvasX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const canvasY = (e.clientY - rect.top) * (canvas.height / rect.height);
             return {
-                imgX: ((e.clientX - rect.left) * (canvas.width / rect.width) - panX) / scale,
-                imgY: ((e.clientY - rect.top) * (canvas.height / rect.height) - panY) / scale,
-                canvasX: (e.clientX - rect.left) * (canvas.width / rect.width),
-                canvasY: (e.clientY - rect.top) * (canvas.height / rect.height)
+                imgX: (canvasX - panX) / scale, imgY: (canvasY - panY) / scale,
+                canvasX: canvasX, canvasY: canvasY
             };
         }
 
@@ -432,61 +594,79 @@
                     selectedItem = found; setMode('edit'); return;
                 }
 
-                startX = coords.imgX; startY = coords.imgY;
+                startX = Math.max(0, Math.min(imgInstance.naturalWidth, coords.imgX));
+                startY = Math.max(0, Math.min(imgInstance.naturalHeight, coords.imgY));
+
                 if(currentMode === 'point') {
                     const kpType = document.getElementById('keypointTypeSelect').value;
                     const kpVisibility = parseInt(document.querySelector('input[name="kpVisGroup"]:checked').value);
                     keypoints.push({ x: startX, y: startY, label: kpType, visibility: kpVisibility });
                     renderCanvas();
-                } else {
-                    isDrawing = true; latestImgX = coords.imgX; latestImgY = coords.imgY;
+                } else if (currentMode === 'box' || currentMode === 'crop') {
+                    isDrawing = true; latestImgX = startX; latestImgY = startY;
                 }
             }
         });
 
         canvas.addEventListener('mousemove', (e) => {
+            const coords = fetchRelativeCoords(e);
+            currentMouseCanvasX = coords.canvasX; currentMouseCanvasY = coords.canvasY;
+
             if (isPanning) {
                 panX = e.clientX - startPanX; panY = e.clientY - startPanY; renderCanvas(); return;
             }
-            if(!isDrawing && editAction === 'none') return;
-            const coords = fetchRelativeCoords(e);
-
-            if (currentMode === 'edit' && selectedItem) {
+            
+            if (currentMode === 'edit' && selectedItem && editAction !== 'none') {
                 if (editAction === 'move-box') {
                     let w = selectedItem.x2 - selectedItem.x1, h = selectedItem.y2 - selectedItem.y1;
-                    selectedItem.x1 = coords.imgX - dragOffsetX; selectedItem.y1 = coords.imgY - dragOffsetY;
-                    selectedItem.x2 = selectedItem.x1 + w; selectedItem.y2 = selectedItem.y1 + h;
+                    let nx1 = Math.max(0, Math.min(imgInstance.naturalWidth - w, coords.imgX - dragOffsetX));
+                    let ny1 = Math.max(0, Math.min(imgInstance.naturalHeight - h, coords.imgY - dragOffsetY));
+                    selectedItem.x1 = nx1; selectedItem.y1 = ny1; selectedItem.x2 = nx1 + w; selectedItem.y2 = ny1 + h;
                 } else if (editAction === 'move-point') {
-                    selectedItem.x = coords.imgX; selectedItem.y = coords.imgY;
-                } else if (editAction === 'resize-tl') { selectedItem.x1 = coords.imgX; selectedItem.y1 = coords.imgY; }
-                else if (editAction === 'resize-tr') { selectedItem.x2 = coords.imgX; selectedItem.y1 = coords.imgY; }
-                else if (editAction === 'resize-bl') { selectedItem.x1 = coords.imgX; selectedItem.y2 = coords.imgY; }
-                else if (editAction === 'resize-br') { selectedItem.x2 = coords.imgX; selectedItem.y2 = coords.imgY; }
+                    selectedItem.x = Math.max(0, Math.min(imgInstance.naturalWidth, coords.imgX));
+                    selectedItem.y = Math.max(0, Math.min(imgInstance.naturalHeight, coords.imgY));
+                } else if (editAction === 'resize-tl') {
+                    selectedItem.x1 = Math.max(0, Math.min(selectedItem.x2 - 5, coords.imgX));
+                    selectedItem.y1 = Math.max(0, Math.min(selectedItem.y2 - 5, coords.imgY));
+                } else if (editAction === 'resize-tr') {
+                    selectedItem.x2 = Math.max(selectedItem.x1 + 5, Math.min(imgInstance.naturalWidth, coords.imgX));
+                    selectedItem.y1 = Math.max(0, Math.min(selectedItem.y2 - 5, coords.imgY));
+                } else if (editAction === 'resize-bl') {
+                    selectedItem.x1 = Math.max(0, Math.min(selectedItem.x2 - 5, coords.imgX));
+                    selectedItem.y2 = Math.max(selectedItem.y1 + 5, Math.min(imgInstance.naturalHeight, coords.imgY));
+                } else if (editAction === 'resize-br') {
+                    selectedItem.x2 = Math.max(selectedItem.x1 + 5, Math.min(imgInstance.naturalWidth, coords.imgX));
+                    selectedItem.y2 = Math.max(selectedItem.y1 + 5, Math.min(imgInstance.naturalHeight, coords.imgY));
+                }
                 renderCanvas(); return;
             }
 
-            latestImgX = coords.imgX; latestImgY = coords.imgY; renderCanvas();
+            if (isDrawing) {
+                latestImgX = Math.max(0, Math.min(imgInstance.naturalWidth, coords.imgX));
+                latestImgY = Math.max(0, Math.min(imgInstance.naturalHeight, coords.imgY));
+            }
+            renderCanvas();
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            currentMouseCanvasX = null; currentMouseCanvasY = null; renderCanvas();
         });
 
         canvas.addEventListener('mouseup', (e) => {
             if (e.button === 2) { isPanning = false; return; }
-            if (currentMode === 'edit') {
-                if (selectedItem && selectedItem.x1 !== undefined) {
-                    let x1 = Math.min(selectedItem.x1, selectedItem.x2), x2 = Math.max(selectedItem.x1, selectedItem.x2);
-                    let y1 = Math.min(selectedItem.y1, selectedItem.y2), y2 = Math.max(selectedItem.y1, selectedItem.y2);
-                    selectedItem.x1 = x1; selectedItem.x2 = x2; selectedItem.y1 = y1; selectedItem.y2 = y2;
-                }
-                editAction = 'none'; renderCanvas(); return;
-            }
+            if (currentMode === 'edit') { editAction = 'none'; renderCanvas(); return; }
             if(!isDrawing) return;
             isDrawing = false;
-            const coords = fetchRelativeCoords(e);
 
-            const x1 = Math.min(startX, coords.imgX), y1 = Math.min(startY, coords.imgY);
-            const x2 = Math.max(startX, coords.imgX), y2 = Math.max(startY, coords.imgY);
+            const x1 = Math.min(startX, latestImgX), y1 = Math.min(startY, latestImgY);
+            const x2 = Math.max(startX, latestImgX), y2 = Math.max(startY, latestImgY);
 
-            if(Math.abs(x2 - x1) > 2 && Math.abs(y2 - y1) > 2) {
-                bboxes.push({ x1, y1, x2, y2, label: document.getElementById('objectLabel').value || 'airplane' });
+            if(Math.abs(x2 - x1) > 3 && Math.abs(y2 - y1) > 3) {
+                if (currentMode === 'box') {
+                    bboxes.push({ x1, y1, x2, y2, label: document.getElementById('objectLabel').value || 'airplane' });
+                } else if (currentMode === 'crop') {
+                    manualCropBox = { x1, y1, x2, y2 }; toggleCropButtonState();
+                }
             }
             renderCanvas();
         });
@@ -499,14 +679,8 @@
 
             panX = coords.canvasX - (coords.canvasX - panX) * (newScale / scale);
             panY = coords.canvasY - (coords.canvasY - panY) * (newScale / scale);
-            scale = newScale;
-            renderCanvas();
+            scale = newScale; renderCanvas();
         }, { passive: false });
-
-        function clearCurrentAnnotations() {
-            bboxes = []; keypoints = []; selectedItem = null; editAction = 'none';
-            document.getElementById('imageTags').value = ''; setMode(currentMode);
-        }
 
         async function saveAnnotationPayload() {
             if(!selectedFile) return;
@@ -519,37 +693,33 @@
             }
             const processedTags = cleanTags.map(tag => /^[A-Za-z]{3,4}$/.test(tag) ? tag.toUpperCase() : tag);
 
-            const payload = { filename: selectedFile, bboxes, keypoints, tags: processedTags };
+            const payload = { 
+                workspace: currentWorkspace,
+                filename: selectedFile, 
+                bboxes, 
+                keypoints, 
+                tags: processedTags,
+                image_width: imgInstance.naturalWidth,
+                image_height: imgInstance.naturalHeight
+            };
+            
             const response = await fetch('/save', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
             });
             const data = await response.json();
             
-            if(data.status === 'success') {
+            if(response.ok && data.status === 'success') {
                 localStore[selectedFile] = { bboxes, keypoints, tags: processedTags, date: data.date };
                 document.getElementById('annotationDate').innerText = data.date;
                 document.getElementById('imageTags').value = processedTags.join(', ');
                 renderCanvas();
-                alert('Saved successfully into standard COCO records!');
+                alert('✅ Saved successfully into standard COCO records!');
+            } else {
+                alert("❌ Critical Error Saving File:\n\n" + data.message);
             }
         }
 
-        async function triggerS3CloudSync() {
-            const bucketName = document.getElementById('s3BucketInput').value.trim();
-            const folderPrefix = document.getElementById('s3PrefixInput').value.trim();
-            const syncButton = document.getElementById('s3SyncButton');
-            if (!bucketName) { alert("⚠️ Error: An S3 Bucket name must be provided to perform a directory cloud sync."); return; }
-
-            syncButton.disabled = true; syncButton.innerText = "Syncing...";
-            try {
-                const response = await fetch('/sync_s3', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bucket: bucketName, prefix: folderPrefix })
-                });
-                const data = await response.json();
-                alert(data.status === 'success' ? `✅ Cloud Sync Success!\n\n${data.message}` : `❌ S3 Upload Failure:\n\n${data.message}`);
-            } catch (err) { alert(`❌ Network Connection Error.`); }
-            finally { syncButton.disabled = false; syncButton.innerText = "☁️ Sync S3"; }
-        }
+        window.addEventListener('resize', () => { if (selectedFile) resetViewport(); });
     </script>
 </body>
-</html></html>
+</html></html></html>
