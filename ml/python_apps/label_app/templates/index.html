@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,7 +16,7 @@
 
     <header class="bg-[#1e1e24] p-4 border-b border-[#444746] flex justify-between items-center shadow-sm">
         <div class="flex items-center gap-4">
-            <img src="static/logo.svg" alt="FyveBy Logo" class="h-8 w-auto object-contain min-w-[130px]">
+            <img src="logo.svg" alt="FyveBy Logo" class="h-8 w-auto object-contain min-w-[130px]">
             <h1 class="text-base font-medium tracking-wide text-[#e3e3e3]">FyveBy Annotator</h1>
         </div>
         <div class="text-xs text-[#c4c7c5] font-mono bg-[#131314] px-3 py-1.5 rounded-lg border border-[#444746]" id="folderDisplay">No folder selected</div>
@@ -47,7 +46,7 @@
             </section>
 
             <section class="w-2/5 bg-[#1e1e24] border border-[#444746] rounded-xl p-4 flex flex-col justify-between overflow-y-auto">
-                <div class="flex flex-col gap-4">
+                <div class="flex flex-col gap-3.5">
                     <div class="grid grid-cols-2 gap-4">
                         <div class="flex flex-col gap-2">
                             <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Drawing Mode</label>
@@ -60,6 +59,17 @@
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Label Attribute</label>
                             <input type="text" id="objectLabel" value="object" class="w-full bg-[#131314] border border-[#444746] rounded-lg px-3 py-2 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] focus:ring-1 focus:ring-[#a8c7fa] transition-colors mt-1">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 border-t border-[#444746]/50 pt-2">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">S3 Bucket Target</label>
+                            <input type="text" id="s3BucketInput" placeholder="my-annotation-bucket" class="w-full bg-[#131314] border border-[#444746] rounded-lg px-3 py-1.5 sorted text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] transition-colors">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">S3 Folder Prefix</label>
+                            <input type="text" id="s3PrefixInput" placeholder="dataset/v1" class="w-full bg-[#131314] border border-[#444746] rounded-lg px-3 py-1.5 sorted text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] transition-colors">
                         </div>
                     </div>
 
@@ -76,11 +86,14 @@
                             <span id="annotationDate" class="text-xs font-mono text-[#e3e3e3]">Not annotated yet</span>
                         </div>
                         <div class="flex gap-1.5">
+                            <button id="s3SyncButton" onclick="triggerS3CloudSync()" class="bg-[#131314] hover:bg-[#202124] border border-[#444746] text-[#74a0fa] px-3 py-2 rounded-lg font-medium text-xs tracking-wide transition shadow-sm">
+                                ☁️ Sync S3
+                            </button>
                             <button onclick="resetViewport()" class="bg-[#131314] hover:bg-[#202124] border border-[#444746] text-[#e3e3e3] px-3 py-2 rounded-lg font-medium text-xs tracking-wide transition shadow-sm">
                                 Reset View
                             </button>
                             <button onclick="clearCurrentAnnotations()" class="bg-[#131314] hover:bg-red-950/20 border border-red-900/30 text-red-400 px-3 py-2 rounded-lg font-medium text-xs tracking-wide transition shadow-sm">
-                                Reset Elements
+                                Reset
                             </button>
                             <button onclick="saveAnnotationPayload()" class="bg-[#0b57d0] hover:bg-[#1b66c9] text-white font-medium px-4 py-2 rounded-lg text-xs tracking-wide shadow-sm transition-all duration-200">
                                 Save
@@ -506,7 +519,7 @@
 
             const coords = fetchRelativeCoords(e);
             const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-            const newScale = Math.min(Math.max(0.1, scale * zoomFactor), 40); 
+            const newScale = Math.min(Math.max(0.1, scale * zoomFactor), 20); 
 
             panX = coords.canvasX - (coords.canvasX - panX) * (newScale / scale);
             panY = coords.canvasY - (coords.canvasY - panY) * (newScale / scale);
@@ -559,6 +572,42 @@
                 document.getElementById('imageTags').value = processedTags.join(', ');
                 renderCanvas();
                 alert('Saved successfully!');
+            }
+        }
+
+        async function triggerS3CloudSync() {
+            const bucketName = document.getElementById('s3BucketInput').value.trim();
+            const folderPrefix = document.getElementById('s3PrefixInput').value.trim();
+            const syncButton = document.getElementById('s3SyncButton');
+
+            if (!bucketName) {
+                alert("⚠️ Error: An S3 Bucket name must be provided to perform a directory cloud sync.");
+                return;
+            }
+
+            syncButton.disabled = true;
+            syncButton.innerText = "Syncing...";
+            syncButton.className = "bg-[#1e1e24] border border-[#444746] text-[#c4c7c5] px-3 py-2 rounded-lg font-medium text-xs tracking-wide cursor-not-allowed";
+
+            try {
+                const response = await fetch('/sync_s3', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bucket: bucketName, prefix: folderPrefix })
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    alert(`✅ Cloud Sync Success!\n\n${data.message}`);
+                } else {
+                    alert(`❌ S3 Upload Failure:\n\n${data.message}`);
+                }
+            } catch (err) {
+                alert(`❌ Network Connection Error:\n\nUnable to reach server endpoint.`);
+            } finally {
+                syncButton.disabled = false;
+                syncButton.innerText = "☁️ Sync S3";
+                syncButton.className = "bg-[#131314] hover:bg-[#202124] border border-[#444746] text-[#74a0fa] px-3 py-2 rounded-lg font-medium text-xs tracking-wide transition shadow-sm";
             }
         }
     </script>
