@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FyveBy Annotator</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        #canvasContainer canvas { max-width: 100%; max-height: 55vh; object-fit: contain; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #131314; }
+        ::-webkit-scrollbar-thumb { background: #333538; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444746; }
+    </style>
+</head>
+<body class="bg-[#131314] text-[#e3e3e3] min-h-screen flex flex-col font-sans antialiased">
+
+    <header class="bg-[#1e1e24] p-4 border-b border-[#444746] flex justify-between items-center shadow-sm">
+        <div class="flex items-center gap-4">
+            <img src="static/logo.svg" alt="FyveBy Logo" class="h-8 w-auto object-contain min-w-[130px]">
+            <h1 class="text-base font-medium tracking-wide text-[#e3e3e3]">FyveBy Annotator</h1>
+        </div>
+        <div class="text-xs text-[#c4c7c5] font-mono bg-[#131314] px-3 py-1.5 rounded-lg border border-[#444746]" id="folderDisplay">No folder selected</div>
+    </header>
+
+    <div class="flex flex-col flex-grow overflow-hidden">
+        
+        <main class="h-[58vh] bg-[#0e0e10] p-4 flex flex-col items-center justify-center relative border-b border-[#444746]">
+            <div id="canvasContainer" class="border border-[#444746] rounded-xl bg-[#131314] shadow-sm flex items-center justify-center overflow-hidden p-1">
+                <canvas id="annotationCanvas" class="cursor-crosshair"></canvas>
+            </div>
+            <div class="absolute bottom-3 text-[11px] tracking-wide text-[#c4c7c5] bg-[#1e1e24]/90 px-4 py-1.5 rounded-full border border-[#444746] backdrop-blur shadow-sm">
+                Scroll to Zoom • Hold Right-Click + Drag to Move Image • Edit Mode: Drag box edges to resize, center to move
+            </div>
+        </main>
+
+        <div class="h-[32vh] flex bg-[#131314] p-4 gap-4 overflow-hidden">
+            
+            <section class="w-1/4 bg-[#1e1e24] border border-[#444746] rounded-xl p-3 flex flex-col overflow-hidden">
+                <div class="flex flex-col gap-2 mb-3 pb-2 border-b border-[#444746]">
+                    <h3 class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Workspace</h3>
+                    <button onclick="selectFolder()" class="w-full bg-[#0b57d0] hover:bg-[#1b66c9] text-white font-medium py-2 rounded-lg text-xs shadow-sm transition-all duration-200">
+                        Select Local Folder
+                    </button>
+                </div>
+                <div id="thumbnailContainer" class="flex-grow overflow-y-auto pr-1 flex flex-col gap-1.5"></div>
+            </section>
+
+            <section class="w-3/4 bg-[#1e1e24] border border-[#444746] rounded-xl p-4 flex flex-col justify-between overflow-y-auto">
+                <div class="grid grid-cols-3 gap-6">
+                    
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Drawing Mode</label>
+                        <div class="grid grid-cols-3 gap-1.5 mt-1">
+                            <button id="toolBox" onclick="setMode('box')" class="bg-[#0b57d0] border border-transparent text-white py-2 rounded-lg font-medium text-xs tracking-wide shadow-sm transition-all duration-150">▢ Box</button>
+                            <button id="toolPoint" onclick="setMode('point')" class="bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-xs tracking-wide hover:bg-[#202124] transition-all duration-150">☉ Point</button>
+                            <button id="toolEdit" onclick="setMode('edit')" class="bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-xs tracking-wide hover:bg-[#202124] transition-all duration-150">⌖ Edit</button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Label Attribute</label>
+                        <input type="text" id="objectLabel" value="object" class="w-full bg-[#131314] border border-[#444746] rounded-lg px-3 py-2 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] focus:ring-1 focus:ring-[#a8c7fa] transition-colors mt-1">
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Image Tags <span class="text-red-400 font-bold">*</span></label>
+                        <input type="text" id="imageTags" placeholder="e.g. LAX, morning, clear-sky" class="w-full bg-[#131314] border border-[#444746] rounded-lg px-3 py-2 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] focus:ring-1 focus:ring-[#a8c7fa] transition-colors mt-1">
+                    </div>
+
+                </div>
+
+                <div class="flex items-center justify-between border-t border-[#444746] pt-3 mt-4">
+                    <div class="bg-[#131314] px-4 py-2 rounded-lg border border-[#444746] flex items-center gap-2">
+                        <span class="text-[10px] font-medium uppercase tracking-widest text-[#c4c7c5]">Timestamp:</span>
+                        <span id="annotationDate" class="text-xs font-mono text-[#e3e3e3]">Not annotated yet</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="resetViewport()" class="bg-[#131314] hover:bg-[#202124] border border-[#444746] text-[#e3e3e3] px-4 py-2 rounded-lg font-medium text-xs tracking-wide transition shadow-sm">
+                            Reset View
+                        </button>
+                        <button onclick="clearCurrentAnnotations()" class="bg-[#131314] hover:bg-red-950/20 border border-red-900/30 text-red-400 px-4 py-2 rounded-lg font-medium text-xs tracking-wide transition shadow-sm">
+                            Reset Elements
+                        </button>
+                        <button onclick="saveAnnotationPayload()" class="bg-[#0b57d0] hover:bg-[#1b66c9] text-white font-medium px-6 py-2 rounded-lg text-xs tracking-wide shadow-sm transition-all duration-200">
+                            Save Annotation
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'box'; 
+        let isDrawing = false;
+        let isPanning = false;
+        let startX, startY;
+        let latestImgX, latestImgY;
+        let startPanX, startPanY;
+        let selectedFile = null;
+        let localStore = {}; 
+
+        let scale = 1.0;
+        let panX = 0;
+        let panY = 0;
+
+        let bboxes = [];
+        let keypoints = [];
+        let selectedItem = null;
+        let editAction = 'none';
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        const canvas = document.getElementById('annotationCanvas');
+        const ctx = canvas.getContext('2d');
+        const imgInstance = new Image();
+
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        document.getElementById('objectLabel').addEventListener('input', (e) => {
+            if (selectedItem && currentMode === 'edit') {
+                selectedItem.label = e.target.value;
+                renderCanvas();
+            }
+        });
+
+        function setMode(mode) {
+            currentMode = mode;
+            if (mode !== 'edit') {
+                selectedItem = null;
+                editAction = 'none';
+            }
+            const activeClass = "bg-[#0b57d0] border border-transparent text-white py-2 rounded-lg font-medium text-xs tracking-wide shadow-sm transition-all duration-150";
+            const inactiveClass = "bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-xs tracking-wide hover:bg-[#202124] transition-all duration-150";
+            
+            document.getElementById('toolBox').className = mode === 'box' ? activeClass : inactiveClass;
+            document.getElementById('toolPoint').className = mode === 'point' ? activeClass : inactiveClass;
+            document.getElementById('toolEdit').className = mode === 'edit' ? activeClass : inactiveClass;
+            renderCanvas();
+        }
+
+        async function selectFolder() {
+            const res = await fetch('/select_folder', { method: 'POST' });
+            const data = await res.json();
+            if(data.status === 'cancelled') return;
+
+            document.getElementById('folderDisplay').innerText = data.folder;
+            localStore = data.annotations;
+            
+            const thumbBox = document.getElementById('thumbnailContainer');
+            thumbBox.innerHTML = '';
+
+            data.images.forEach(img => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-3 p-1.5 rounded-lg bg-[#131314] hover:bg-[#202124] cursor-pointer transition border border-transparent";
+                div.id = `thumb-${img}`;
+                div.onclick = () => focusImage(img);
+
+                const thumb = document.createElement('img');
+                thumb.src = `/image/${img}`;
+                thumb.className = "w-10 h-10 object-cover rounded-lg shadow-inner bg-[#0e0e10]";
+
+                const label = document.createElement('span');
+                label.className = "text-[11px] truncate w-32 font-mono text-[#c4c7c5]";
+                label.innerText = img;
+
+                div.appendChild(thumb);
+                div.appendChild(label);
+                thumbBox.appendChild(div);
+            });
+
+            if(data.images.length > 0) focusImage(data.images[0]);
+        }
+
+        function focusImage(filename) {
+            if(selectedFile) {
+                document.getElementById(`thumb-${selectedFile}`)?.classList.remove('border-[#0b57d0]', 'bg-[#202124]');
+            }
+            selectedFile = filename;
+            selectedItem = null;
+            editAction = 'none';
+            document.getElementById(`thumb-${filename}`)?.classList.add('border-[#0b57d0]', 'bg-[#202124]');
+
+            imgInstance.src = `/image/${filename}`;
+            imgInstance.onload = () => {
+                canvas.width = imgInstance.naturalWidth;
+                canvas.height = imgInstance.naturalHeight;
+                
+                scale = 1.0;
+                panX = 0;
+                panY = 0;
+
+                const record = localStore[filename] || { bboxes: [], keypoints: [], tags: [], date: "Not annotated yet" };
+                bboxes = record.bboxes || [];
+                keypoints = record.keypoints || [];
+                document.getElementById('imageTags').value = (record.tags || []).join(', ');
+                document.getElementById('annotationDate').innerText = record.date || "Not annotated yet";
+                
+                renderCanvas();
+            };
+        }
+
+        function resetViewport() {
+            scale = 1.0;
+            panX = 0;
+            panY = 0;
+            renderCanvas();
+        }
+
+        function renderCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(panX, panY);
+            ctx.scale(scale, scale);
+
+            ctx.drawImage(imgInstance, 0, 0);
+
+            bboxes.forEach(box => {
+                const isSelected = (box === selectedItem);
+                ctx.strokeStyle = isSelected ? '#ff8da1' : '#74a0fa';
+                ctx.lineWidth = isSelected ? Math.max(2.5, 3 / scale) : Math.max(1.5, 2 / scale);
+                ctx.strokeRect(box.x1, box.y1, box.x2 - box.x1, box.y2 - box.y1);
+                
+                ctx.fillStyle = isSelected ? '#ff8da1' : '#74a0fa';
+                ctx.font = `${Math.max(10, 13 / scale)}px sans-serif`;
+                ctx.fillText(box.label, box.x1, box.y1 - (6 / scale));
+
+                if (isSelected && currentMode === 'edit') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#ff8da1';
+                    ctx.lineWidth = Math.max(1, 1 / scale);
+                    let sz = Math.max(6, 8 / scale);
+                    
+                    ctx.fillRect(box.x1 - sz/2, box.y1 - sz/2, sz, sz);
+                    ctx.strokeRect(box.x1 - sz/2, box.y1 - sz/2, sz, sz);
+                    
+                    ctx.fillRect(box.x2 - sz/2, box.y1 - sz/2, sz, sz);
+                    ctx.strokeRect(box.x2 - sz/2, box.y1 - sz/2, sz, sz);
+                    
+                    ctx.fillRect(box.x1 - sz/2, box.y2 - sz/2, sz, sz);
+                    ctx.strokeRect(box.x1 - sz/2, box.y2 - sz/2, sz, sz);
+                    
+                    ctx.fillRect(box.x2 - sz/2, box.y2 - sz/2, sz, sz);
+                    ctx.strokeRect(box.x2 - sz/2, box.y2 - sz/2, sz, sz);
+                }
+            });
+
+            keypoints.forEach(pt => {
+                const isSelected = (pt === selectedItem);
+                ctx.fillStyle = isSelected ? '#ff8da1' : '#ff6b6b';
+                const rad = isSelected ? Math.max(5, 8 / scale) : Math.max(3, 5 / scale);
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, rad, 0, 2 * Math.PI);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `${Math.max(10, 13 / scale)}px sans-serif`;
+                ctx.fillText(pt.label, pt.x + rad + (4 / scale), pt.y + (4 / scale));
+            });
+
+            if (isDrawing && currentMode === 'box') {
+                ctx.strokeStyle = '#eab308';
+                ctx.lineWidth = Math.max(1.5, 2 / scale);
+                ctx.strokeRect(startX, startY, latestImgX - startX, latestImgY - startY);
+            }
+
+            ctx.restore();
+        }
+
+        function fetchRelativeCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const xCanvas = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const yCanvas = (e.clientY - rect.top) * (canvas.height / rect.height);
+            return {
+                imgX: (xCanvas - panX) / scale,
+                imgY: (yCanvas - panY) / scale,
+                canvasX: xCanvas,
+                canvasY: yCanvas
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if(!selectedFile) return;
+            const coords = fetchRelativeCoords(e);
+
+            if (e.button === 2) { 
+                isPanning = true;
+                startPanX = e.clientX - panX;
+                startPanY = e.clientY - panY;
+                return;
+            }
+
+            if (e.button === 0) { 
+                if (currentMode === 'edit') {
+                    if (selectedItem && selectedItem.x1 !== undefined) {
+                        let sz = Math.max(10, 12 / scale);
+                        if (Math.abs(coords.imgX - selectedItem.x1) < sz && Math.abs(coords.imgY - selectedItem.y1) < sz) { editAction = 'resize-tl'; return; }
+                        if (Math.abs(coords.imgX - selectedItem.x2) < sz && Math.abs(coords.imgY - selectedItem.y1) < sz) { editAction = 'resize-tr'; return; }
+                        if (Math.abs(coords.imgX - selectedItem.x1) < sz && Math.abs(coords.imgY - selectedItem.y2) < sz) { editAction = 'resize-bl'; return; }
+                        if (Math.abs(coords.imgX - selectedItem.x2) < sz && Math.abs(coords.imgY - selectedItem.y2) < sz) { editAction = 'resize-br'; return; }
+                        
+                        if (coords.imgX >= selectedItem.x1 && coords.imgX <= selectedItem.x2 && coords.imgY >= selectedItem.y1 && coords.imgY <= selectedItem.y2) {
+                            editAction = 'move-box';
+                            dragOffsetX = coords.imgX - selectedItem.x1;
+                            dragOffsetY = coords.imgY - selectedItem.y1;
+                            return;
+                        }
+                    }
+
+                    let found = null;
+                    for (let i = keypoints.length - 1; i >= 0; i--) {
+                        let pt = keypoints[i];
+                        let dist = Math.sqrt(Math.pow(pt.x - coords.imgX, 2) + Math.pow(pt.y - coords.imgY, 2));
+                        if (dist < 15 / scale) {
+                            found = pt;
+                            editAction = 'move-point';
+                            break;
+                        }
+                    }
+
+                    if (!found) {
+                        for (let i = bboxes.length - 1; i >= 0; i--) {
+                            let box = bboxes[i];
+                            if (coords.imgX >= box.x1 && coords.imgX <= box.x2 && coords.imgY >= box.y1 && coords.imgY <= box.y2) {
+                                found = box;
+                                editAction = 'move-box';
+                                dragOffsetX = coords.imgX - box.x1;
+                                dragOffsetY = coords.imgY - box.y1;
+                                break;
+                            }
+                        }
+                    }
+
+                    selectedItem = found;
+                    if (selectedItem) {
+                        document.getElementById('objectLabel').value = selectedItem.label;
+                    } else {
+                        editAction = 'none';
+                    }
+                    renderCanvas();
+                    return;
+                }
+
+                startX = coords.imgX;
+                startY = coords.imgY;
+
+                if(currentMode === 'point') {
+                    const tagLabel = document.getElementById('objectLabel').value || 'point';
+                    keypoints.push({ x: startX, y: startY, label: tagLabel });
+                    renderCanvas();
+                } else {
+                    isDrawing = true;
+                    latestImgX = coords.imgX;
+                    latestImgY = coords.imgY;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isPanning) {
+                panX = e.clientX - startPanX;
+                panY = e.clientY - startPanY;
+                renderCanvas();
+                return;
+            }
+
+            const coords = fetchRelativeCoords(e);
+
+            if (currentMode === 'edit' && selectedItem) {
+                if (editAction === 'move-box') {
+                    let w = selectedItem.x2 - selectedItem.x1;
+                    let h = selectedItem.y2 - selectedItem.y1;
+                    selectedItem.x1 = coords.imgX - dragOffsetX;
+                    selectedItem.y1 = coords.imgY - dragOffsetY;
+                    selectedItem.x2 = selectedItem.x1 + w;
+                    selectedItem.y2 = selectedItem.y1 + h;
+                    renderCanvas();
+                } else if (editAction === 'move-point') {
+                    selectedItem.x = coords.imgX;
+                    selectedItem.y = coords.imgY;
+                    renderCanvas();
+                } else if (editAction === 'resize-tl') {
+                    selectedItem.x1 = coords.imgX;
+                    selectedItem.y1 = coords.imgY;
+                    renderCanvas();
+                } else if (editAction === 'resize-tr') {
+                    selectedItem.x2 = coords.imgX;
+                    selectedItem.y1 = coords.imgY;
+                    renderCanvas();
+                } else if (editAction === 'resize-bl') {
+                    selectedItem.x1 = coords.imgX;
+                    selectedItem.y2 = coords.imgY;
+                    renderCanvas();
+                } else if (editAction === 'resize-br') {
+                    selectedItem.x2 = coords.imgX;
+                    selectedItem.y2 = coords.imgY;
+                    renderCanvas();
+                }
+                return;
+            }
+
+            if(!isDrawing || currentMode !== 'box') return;
+            latestImgX = coords.imgX;
+            latestImgY = coords.imgY;
+            renderCanvas();
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (e.button === 2) {
+                isPanning = false;
+                return;
+            }
+
+            if (currentMode === 'edit') {
+                if (selectedItem && selectedItem.x1 !== undefined) {
+                    let x1 = Math.min(selectedItem.x1, selectedItem.x2);
+                    let x2 = Math.max(selectedItem.x1, selectedItem.x2);
+                    let y1 = Math.min(selectedItem.y1, selectedItem.y2);
+                    let y2 = Math.max(selectedItem.y1, selectedItem.y2);
+                    selectedItem.x1 = x1;
+                    selectedItem.x2 = x2;
+                    selectedItem.y1 = y1;
+                    selectedItem.y2 = y2;
+                }
+                editAction = 'none';
+                renderCanvas();
+                return;
+            }
+
+            if(!isDrawing || currentMode !== 'box') return;
+            isDrawing = false;
+            const coords = fetchRelativeCoords(e);
+
+            const x1 = Math.min(startX, coords.imgX);
+            const y1 = Math.min(startY, coords.imgY);
+            const x2 = Math.max(startX, coords.imgX);
+            const y2 = Math.max(startY, coords.imgY);
+
+            if(Math.abs(x2 - x1) > 2 && Math.abs(y2 - y1) > 2) {
+                const tagLabel = document.getElementById('objectLabel').value || 'object';
+                bboxes.push({ x1, y1, x2, y2, label: tagLabel });
+            }
+            renderCanvas();
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            if (!selectedFile) return;
+            e.preventDefault();
+
+            const coords = fetchRelativeCoords(e);
+            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+            const newScale = Math.min(Math.max(0.1, scale * zoomFactor), 20); 
+
+            panX = coords.canvasX - (coords.canvasX - panX) * (newScale / scale);
+            panY = coords.canvasY - (coords.canvasY - panY) * (newScale / scale);
+            scale = newScale;
+
+            renderCanvas();
+        }, { passive: false });
+
+        function clearCurrentAnnotations() {
+            bboxes = [];
+            keypoints = [];
+            selectedItem = null;
+            editAction = 'none';
+            document.getElementById('imageTags').value = '';
+            renderCanvas();
+        }
+
+        async function saveAnnotationPayload() {
+            if(!selectedFile) return;
+            const rawTags = document.getElementById('imageTags').value;
+            const cleanTags = rawTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+            const airportCodeRegex = /^[A-Za-z]{3,4}$/;
+            const hasAirportCode = cleanTags.some(tag => airportCodeRegex.test(tag));
+
+            if (!hasAirportCode) {
+                alert("⚠️ Validation Error: You must include at least one valid 3 or 4-letter airport code (e.g. LAX, KLAX) in your tags.");
+                return;
+            }
+
+            const processedTags = cleanTags.map(tag => airportCodeRegex.test(tag) ? tag.toUpperCase() : tag);
+
+            const payload = {
+                filename: selectedFile,
+                bboxes: bboxes,
+                keypoints: keypoints,
+                tags: processedTags
+            };
+
+            const response = await fetch('/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            
+            if(data.status === 'success') {
+                localStore[selectedFile] = { bboxes, keypoints, tags: processedTags, date: data.date };
+                document.getElementById('annotationDate').innerText = data.date;
+                document.getElementById('imageTags').value = processedTags.join(', ');
+                alert('Saved successfully!');
+            }
+        }
+    </script>
+</body>
+</html>
