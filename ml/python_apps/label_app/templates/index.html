@@ -17,9 +17,12 @@
     <header class="bg-[#1e1e24] p-4 border-b border-[#444746] flex justify-between items-center shadow-sm z-10">
         <div class="flex items-center gap-4">
             <img src="static/logo.svg" alt="FyveBy Logo" class="h-8 w-auto object-contain min-w-[130px]">
-            <h1 class="text-base font-medium tracking-wide text-[#e3e3e3]">FyveBy Label App</h1>
+            <h1 class="text-base font-medium tracking-wide text-[#e3e3e3]">FyveBy Annotator</h1>
         </div>
-        <div class="text-xs text-[#c4c7c5] font-mono bg-[#131314] px-3 py-1.5 rounded-lg border border-[#444746]" id="folderDisplay">No folder selected</div>
+        <div class="flex items-center gap-2">
+            <div class="text-xs text-[#a8c7fa] font-mono bg-[#131314] px-3 py-1.5 rounded-lg border border-[#444746] hidden" id="imageCounterDisplay">Image 0 of 0</div>
+            <div class="text-xs text-[#c4c7c5] font-mono bg-[#131314] px-3 py-1.5 rounded-lg border border-[#444746]" id="folderDisplay">No folder selected</div>
+        </div>
     </header>
 
     <div class="flex flex-col flex-grow overflow-hidden">
@@ -28,7 +31,7 @@
             <aside class="w-64 bg-[#1e1e24] border-r border-[#444746] p-3 flex flex-col overflow-hidden">
                 <div class="flex flex-col gap-2 mb-3 pb-2 border-b border-[#444746]">
                     <h3 class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Workspace Storage</h3>
-                    <button onclick="selectFolder()" class="w-full bg-[#0b57d0] hover:bg-[#1b66c9] text-white font-medium py-2 rounded-lg text-xs shadow-sm transition-all duration-200">
+                    <button onclick="selectFolder()" class="w-full bg-[#0b57d0] hover:bg-[#1b66c9] text-white font-medium py-2 rounded-lg text-xs shadow-sm transition-all duration-200 cursor-pointer">
                         📂 Select Local Folder
                     </button>
                 </div>
@@ -53,10 +56,10 @@
                     <div class="flex flex-col gap-2">
                         <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Drawing Mode</label>
                         <div class="grid grid-cols-4 gap-1 mt-1">
-                            <button id="toolBox" onclick="setMode('box')" class="bg-[#0b57d0] border border-transparent text-white py-2 rounded-lg font-medium text-[10px] tracking-wide shadow-sm transition-all duration-150">▢ Box</button>
-                            <button id="toolPoint" onclick="setMode('point')" class="bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-[10px] tracking-wide hover:bg-[#202124] transition-all duration-150">☉ Point</button>
-                            <button id="toolEdit" onclick="setMode('edit')" class="bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-[10px] tracking-wide hover:bg-[#202124] transition-all duration-150">⌖ Edit</button>
-                            <button id="toolCrop" onclick="setMode('crop')" class="bg-[#131314] border border-orange-500/30 text-orange-400 py-2 rounded-lg font-medium text-[10px] tracking-wide hover:bg-[#202124] transition-all duration-150">✂️ Crop</button>
+                            <button id="toolBox" onclick="setMode('box')" class="bg-[#0b57d0] border border-transparent text-white py-2 rounded-lg font-medium text-[10px] tracking-wide shadow-sm transition-all duration-150 cursor-pointer">▢ Box</button>
+                            <button id="toolPoint" onclick="setMode('point')" class="bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-[10px] tracking-wide hover:bg-[#202124] transition-all duration-150 cursor-pointer">☉ Point</button>
+                            <button id="toolEdit" onclick="setMode('edit')" class="bg-[#131314] border border-[#444746] text-[#c4c7c5] py-2 rounded-lg font-medium text-[10px] tracking-wide hover:bg-[#202124] transition-all duration-150 cursor-pointer">⌖ Edit</button>
+                            <button id="toolCrop" onclick="setMode('crop')" class="bg-[#131314] border border-orange-500/30 text-orange-400 py-2 rounded-lg font-medium text-[10px] tracking-wide hover:bg-[#202124] transition-all duration-150 cursor-pointer">✂️ Crop</button>
                         </div>
                     </div>
 
@@ -101,13 +104,13 @@
                 <div class="flex items-center justify-between border-t border-[#444746] pt-3 mt-2">
                     <div class="flex items-center gap-2">
                         <div class="flex items-center gap-3 bg-[#131314] px-3 py-1.5 rounded-lg border border-[#444746]">
-                            <input type="text" id="s3BucketInput" placeholder="S3 Bucket" class="bg-transparent text-xs text-[#e3e3e3] focus:outline-none w-36">
-                            <input type="text" id="s3PrefixInput" placeholder="Prefix (Optional)" class="bg-transparent text-xs text-[#e3e3e3] focus:outline-none w-32 border-l border-[#444746] pl-3">
+                            <input type="text" id="s3UriInput" placeholder="S3 Bucket URI" class="bg-transparent text-xs text-[#e3e3e3] focus:outline-none w-36">
                             <button id="s3SyncButton" onclick="triggerS3CloudSync()" class="text-[#74a0fa] hover:text-[#a8c7fa] font-semibold text-xs tracking-wide ml-2 transition cursor-pointer">
                                 ☁️ Sync Cloud
                             </button>
                         </div>
                         <div class="flex flex-col gap-0.5 pl-2">
+
                             <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Image Meta Tags <span class="text-red-400 font-bold">*</span></label>
                             <input type="text" id="imageTags" placeholder="e.g. LAX, clear, arrival" class="bg-[#131314] border border-[#444746] rounded-lg px-3 py-1 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] transition-colors w-48">
                         </div>
@@ -140,10 +143,10 @@
         let latestImgX, latestImgY;
         let startPanX, startPanY;
         
-        // 🔴 MANDATORY IMMUTABLE WORKSPACE STATE ANCHOR
         let currentWorkspace = null;
         let selectedFile = null;
         let localStore = {}; 
+        let allImages = [];
 
         let scale = 1.0;
         let panX = 0;
@@ -290,7 +293,6 @@
             const data = await res.json();
             if(data.status === 'cancelled') return;
 
-            // Anchor the absolute path in browser memory space
             currentWorkspace = data.folder;
             document.getElementById('folderDisplay').innerText = data.folder;
             localStore = data.annotations;
@@ -298,6 +300,7 @@
         }
 
         function rebuildWorkspaceGallery(imagesArray) {
+            allImages = imagesArray;
             const thumbBox = document.getElementById('thumbnailContainer');
             thumbBox.innerHTML = '';
 
@@ -308,7 +311,6 @@
                 div.onclick = () => focusImage(img);
 
                 const thumb = document.createElement('img');
-                // Stream using explicit queries to avoid process reload cache wipes
                 thumb.src = `/image/${img}?workspace=${encodeURIComponent(currentWorkspace)}&t=${new Date().getTime()}`;
                 thumb.className = "w-10 h-10 object-cover rounded-lg shadow-inner bg-[#0e0e10]";
 
@@ -332,6 +334,7 @@
                 selectedFile = null; toggleAssetActionButtons(false);
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 document.getElementById('jsonPreview').textContent = '';
+                document.getElementById('imageCounterDisplay').classList.add('hidden');
             }
         }
 
@@ -343,6 +346,14 @@
             imgInstance.src = `/image/${filename}?workspace=${encodeURIComponent(currentWorkspace)}&t=${new Date().getTime()}`;
             imgInstance.onload = () => {
                 resetViewport();
+                
+                if (allImages.length > 0) {
+                    let currentIndex = allImages.indexOf(filename) + 1;
+                    let counterBadge = document.getElementById('imageCounterDisplay');
+                    counterBadge.classList.remove('hidden');
+                    counterBadge.innerText = `Image ${currentIndex} of ${allImages.length}`;
+                }
+
                 const record = localStore[filename] || { bboxes: [], keypoints: [], tags: [], date: "Not annotated yet" };
                 bboxes = record.bboxes || [];
                 keypoints = record.keypoints || [];
@@ -417,23 +428,46 @@
         }
 
         async function executeImgDelete() {
-            if (!selectedFile) return;
-            if (!confirm(`⚠️ Permanently wipe local tracking files for '${selectedFile}'?`)) return;
+	    if (!selectedFile) return;
+	    if (!confirm(`⚠️ Permanently wipe local tracking files for '${selectedFile}'?`)) return;
 
-            const oldFilename = selectedFile;
-            const response = await fetch('/delete_image', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ workspace: currentWorkspace, filename: oldFilename })
-            });
+	    const oldFilename = selectedFile;
+	    
+	    // 1. Calculate the next file to focus BEFORE filtering out the current one
+	    const currentIndex = allImages.indexOf(oldFilename);
+	    let nextSelectedFile = null;
+	    
+	    if (allImages.length > 1) {
+		if (currentIndex === allImages.length - 1) {
+		    // If deleting the last item in the list, step backward
+		    nextSelectedFile = allImages[currentIndex - 1];
+		} else {
+		    // Otherwise, slide into the next available image entry
+		    nextSelectedFile = allImages[currentIndex + 1];
+		}
+	    }
 
-            if (response.ok) {
-                delete localStore[oldFilename];
-                // Reload via client state parameter configurations
-                const res = await fetch('/select_folder', { method: 'POST' });
-                const freshData = await res.json();
-                selectedFile = null; rebuildWorkspaceGallery(freshData.images || []);
-            }
-        }
+	    // 2. Tell the file system to drop the asset file off the disk
+	    const response = await fetch('/delete_image', {
+		method: 'POST', 
+		headers: { 'Content-Type': 'application/json' }, 
+		body: JSON.stringify({ workspace: currentWorkspace, filename: oldFilename })
+	    });
+
+    if (response.ok) {
+        // 3. Clear the cache memory tracking state
+        delete localStore[oldFilename];
+        
+        // 4. Filter the image array directly in local browser memory (No folder popup needed!)
+        const updatedImages = allImages.filter(img => img !== oldFilename);
+        
+        // 5. Update state anchors and rebuild layout components
+        selectedFile = nextSelectedFile; 
+        rebuildWorkspaceGallery(updatedImages);
+    } else {
+        alert("❌ Error: The server encountered a problem processing the deletion request.");
+    }
+}
 
         function generateCOCORecords() {
             const rawTags = document.getElementById('imageTags').value;
@@ -478,6 +512,7 @@
         function renderCanvas() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.save(); ctx.translate(panX, panY); ctx.scale(scale, scale);
+            ctx.imageSmoothingEnabled = false;
             ctx.drawImage(imgInstance, 0, 0);
 
             bboxes.forEach(box => {
@@ -535,9 +570,10 @@
 
             ctx.restore();
 
+            // High-visibility neon yellow crosshairs
             if (currentMouseCanvasX !== null && currentMouseCanvasY !== null && ['box', 'point', 'crop'].includes(currentMode)) {
                 ctx.save();
-                ctx.strokeStyle = 'rgba(124, 255, 12, 1.0)'; 
+                ctx.strokeStyle = 'rgba(234, 179, 8, 0.65)'; 
                 ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
                 ctx.beginPath(); ctx.moveTo(0, currentMouseCanvasY); ctx.lineTo(canvas.width, currentMouseCanvasY); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(currentMouseCanvasX, 0); ctx.lineTo(currentMouseCanvasX, canvas.height); ctx.stroke();
@@ -719,7 +755,47 @@
             }
         }
 
+        async function triggerS3CloudSync() {
+            const s3Uri = document.getElementById('s3UriInput').value.trim();
+            const syncButton = document.getElementById('s3SyncButton');
+            
+            if (!currentWorkspace) { 
+                alert("⚠️ Error: You must select a local workspace folder before trying to sync with cloud storage."); 
+                return; 
+            }
+            if (!s3Uri) { 
+                alert("⚠️ Error: An absolute S3 URI target destination path must be specified to trigger sync routine."); 
+                return; 
+            }
+
+            syncButton.disabled = true; 
+            syncButton.innerText = "Syncing...";
+            
+            try {
+                const response = await fetch('/sync_s3', {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        workspace: currentWorkspace,
+                        s3_uri: s3Uri
+                    })
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    alert(`✅ Cloud Sync Success!\n\n${data.message}`);
+                } else {
+                    alert(`❌ S3 Upload Failure:\n\n${data.message || 'The server encountered an error processing the upload sequence.'}`);
+                }
+            } catch (err) { 
+                alert(`❌ Network Connection Error: Could not reach the annotation backend controller server.`); 
+            } finally { 
+                syncButton.disabled = false; 
+                syncButton.innerText = "☁️ Sync Cloud"; 
+            }
+        }
+
         window.addEventListener('resize', () => { if (selectedFile) resetViewport(); });
     </script>
 </body>
-</html></html></html>
+</html>

@@ -1,5 +1,3 @@
-#!.venv/bin/python3
-
 import os
 import json
 import platform
@@ -19,10 +17,6 @@ COCO_KP_ORDER = [
     "nose", "left_wing_tip", "right_wing_tip", "tail_top_corner",
     "left_landing_gear", "right_landing_gear", "nose_gear"
 ]
-
-@app.route('/')
-def home():
-    return render_template('index.html')
 
 def open_native_folder_browser():
     if platform.system() == "Darwin":
@@ -78,7 +72,6 @@ def calculate_local_file_md5(file_path):
     return f'"{hasher.hexdigest()}"'
 
 def commit_save_to_json(workspace, filename, bboxes, keypoints, tags, img_w, img_h):
-    """Writes standard COCO data structures to disk files using explicit path strings."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     json_store = os.path.join(workspace, 'annotations.json')
     coco_dataset = build_empty_coco_skeleton()
@@ -128,6 +121,10 @@ def commit_save_to_json(workspace, filename, bboxes, keypoints, tags, img_w, img
         json.dump(coco_dataset, file, indent=4)
     return timestamp
 
+@app.route('/')
+def home():
+    return render_template('index.html')
+
 @app.route('/select_folder', methods=['POST'])
 def select_folder():
     target_path = open_native_folder_browser()
@@ -144,14 +141,14 @@ def select_folder():
 @app.route('/image/<path:filename>')
 def serve_image(filename):
     workspace = request.args.get('workspace')
-    if not workspace or not os.path.exists(workspace): return "Missing parameter query string profile", 400
+    if not workspace or not os.path.exists(workspace): return "Missing space parameter query profile", 400
     return send_from_directory(workspace, filename)
 
 @app.route('/save', methods=['POST'])
 def save():
     payload = request.json
     workspace = payload.get('workspace')
-    if not workspace: return jsonify({"status": "error", "message": "Backend parameter state error: missing active workspace token."}), 400
+    if not workspace: return jsonify({"status": "error", "message": "Missing active workspace token."}), 400
     try:
         timestamp = commit_save_to_json(
             workspace, payload.get('filename'), payload.get('bboxes', []), 
@@ -218,40 +215,60 @@ def transform_image():
 def sync_s3():
     payload = request.json
     workspace = payload.get('workspace')
-    bucket_name = payload.get('bucket', '').strip()
-    prefix = payload.get('prefix', '').strip()
+    s3_uri = payload.get('s3_uri', '').strip()
+    
+    if not s3_uri:
+        return jsonify({"status": "error", "message": "Missing S3 URI parameter field."}), 400
+        
+    if s3_uri.lower().startswith('s3://'):
+        s3_uri = s3_uri[5:]
+        
+    uri_parts = s3_uri.split('/', 1)
+    bucket_name = uri_parts[0]
+    prefix = uri_parts[1].strip() if len(uri_parts) > 1 else ''
+    
+    if prefix.endswith('/'):
+        prefix = prefix[:-1]
+        
     try:
         s3_client = boto3.client('s3')
         local_json_path = os.path.join(workspace, 'annotations.json')
         s3_key = os.path.join(prefix, 'annotations.json') if prefix else 'annotations.json'
         s3_key = s3_key.replace('\\', '/')
+        
         s3_dataset = build_empty_coco_skeleton()
         try:
             s3_dataset = json.loads(s3_client.get_object(Bucket=bucket_name, Key=s3_key)['Body'].read().decode('utf-8'))
         except ClientError as e:
             if e.response['Error']['Code'] != 'NoSuchKey': raise e
+            
         local_dataset = build_empty_coco_skeleton()
         if os.path.exists(local_json_path):
             with open(local_json_path, 'r') as file:
                 try: local_dataset = json.load(file)
                 except Exception: pass
+                
         s3_images = {img["file_name"]: img for img in s3_dataset.get("images", [])}
         s3_annotations = {}
         for ann in s3_dataset.get("annotations", []): s3_annotations.setdefault(ann["image_id"], []).append(ann)
+        
         final_images, final_annotations = [], []
         next_img_id, next_ann_id = 1, 1
         local_images = {img["file_name"]: img for img in local_dataset.get("images", [])}
         local_annotations = {}
         img_id_to_filename = {img["id"]: img["file_name"] for img in local_dataset.get("images", [])}
+        
         for ann in local_dataset.get("annotations", []):
             fname = img_id_to_filename.get(ann["image_id"])
             if fname: local_annotations.setdefault(fname, []).append(ann)
+            
         for fname in set(list(s3_images.keys()) + list(local_images.keys())):
             if fname in local_images:
                 img_entry, ann_entries = local_images[fname].copy(), local_annotations.get(fname, [])
             else:
                 img_entry = s3_images[fname].copy()
                 ann_entries = s3_annotations.get(img_entry["id"], [])
+                
             current_img_id = next_img_id
             img_entry["id"] = current_img_id
             final_images.append(img_entry)
@@ -261,11 +278,14 @@ def sync_s3():
                 new_ann["id"], new_ann["image_id"] = next_ann_id, current_img_id
                 final_annotations.append(new_ann)
                 next_ann_id += 1
+                
         compiled_coco = build_empty_coco_skeleton()
         compiled_coco["images"], compiled_coco["annotations"] = final_images, final_annotations
         with open(local_json_path, 'w') as file: json.dump(compiled_coco, file, indent=4)
+        
         local_files = [f for f in os.listdir(workspace) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.webp'))]
         uploaded, skipped = 0, 0
+        
         for name in local_files:
             local_path = os.path.join(workspace, name)
             target_key = os.path.join(prefix, name).replace('\\', '/') if prefix else name
@@ -275,6 +295,7 @@ def sync_s3():
             except ClientError: pass
             s3_client.upload_file(local_path, bucket_name, target_key)
             uploaded += 1
+            
         s3_client.upload_file(local_json_path, bucket_name, s3_key)
         return jsonify({"status": "success", "message": f"Successfully integrated database indices.\n\nUploaded {uploaded} modified assets.\nSkipped {skipped} unchanged image files."})
     except Exception as e: return jsonify({"status": "error", "message": str(e)}), 500
