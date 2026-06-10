@@ -5,7 +5,7 @@
     <title>FyveBy Annotator (COCO Edition)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        #canvasContainer canvas { display: block; width: 100%; height: 100%; }
+        #canvasContainer canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #131314; }
         ::-webkit-scrollbar-thumb { background: #333538; border-radius: 4px; }
@@ -42,8 +42,8 @@
                 <div id="canvasContainer" class="border border-[#444746] rounded-xl bg-[#131314] shadow-sm flex items-center justify-center overflow-hidden p-1 w-full h-full max-h-[54vh]">
                     <canvas id="annotationCanvas" class="cursor-crosshair"></canvas>
                 </div>
-                <div class="absolute bottom-3 text-[11px] tracking-wide text-[#c4c7c5] bg-[#1e1e24]/90 px-4 py-1.5 rounded-full border border-[#444746] backdrop-blur shadow-sm">
-                    Scroll to Zoom • Hold Right-Click + Drag to Move • Edit Mode: Scale items, press <span class="bg-[#333538] px-1.5 py-0.5 rounded text-white font-mono font-bold">Delete</span> / <span class="bg-[#333538] px-1.5 py-0.5 rounded text-white font-mono font-bold">Backspace</span> to clear selection
+                <div class="absolute bottom-3 text-[11px] tracking-wide text-[#c4c7c5] bg-[#1e1e24]/90 px-4 py-1.5 rounded-full border border-[#444746] backdrop-blur shadow-sm select-none">
+                    Hotkeys: <span class="bg-[#333538] px-1 rounded text-white font-mono font-bold">B</span> Box • <span class="bg-[#333538] px-1 rounded text-white font-mono font-bold">K</span> Keypoint • <span class="bg-[#333538] px-1 rounded text-white font-mono font-bold">E</span> Edit • <span class="bg-[#333538] px-1 rounded text-white font-mono font-bold">1-7</span> Keypoints Selection || Scroll to Zoom • Right-Click + Drag to Move • <span class="bg-[#333538] px-1 rounded text-white font-mono font-bold">Delete</span> Clear Item
                 </div>
             </main>
         </div>
@@ -104,13 +104,12 @@
                 <div class="flex items-center justify-between border-t border-[#444746] pt-3 mt-2">
                     <div class="flex items-center gap-2">
                         <div class="flex items-center gap-3 bg-[#131314] px-3 py-1.5 rounded-lg border border-[#444746]">
-                            <input type="text" id="s3UriInput" placeholder="S3 Bucket URI" class="bg-transparent text-xs text-[#e3e3e3] focus:outline-none w-36">
+                            <input type="text" id="s3UriInput" placeholder="s3://your-bucket-name/optional-prefix" class="bg-transparent text-xs text-[#e3e3e3] focus:outline-none w-64">
                             <button id="s3SyncButton" onclick="triggerS3CloudSync()" class="text-[#74a0fa] hover:text-[#a8c7fa] font-semibold text-xs tracking-wide ml-2 transition cursor-pointer">
                                 ☁️ Sync Cloud
                             </button>
                         </div>
                         <div class="flex flex-col gap-0.5 pl-2">
-
                             <label class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5]">Image Meta Tags <span class="text-red-400 font-bold">*</span></label>
                             <input type="text" id="imageTags" placeholder="e.g. LAX, clear, arrival" class="bg-[#131314] border border-[#444746] rounded-lg px-3 py-1 text-xs text-[#e3e3e3] focus:outline-none focus:border-[#a8c7fa] transition-colors w-48">
                         </div>
@@ -200,17 +199,43 @@
         window.addEventListener('keydown', (e) => {
             if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return;
             
-            if ((e.key === 'Delete' || e.key === 'Backspace') && currentMode === 'edit' && selectedItem) {
+            const key = e.key.toLowerCase();
+            
+            if (key === 'b') {
                 e.preventDefault();
-                if (selectedItem.x1 !== undefined) {
-                    bboxes = bboxes.filter(box => box !== selectedItem);
-                } else {
-                    keypoints = keypoints.filter(pt => pt !== selectedItem);
+                setMode('box');
+            } else if (key === 'k') {
+                e.preventDefault();
+                setMode('point');
+            } else if (key === 'e') {
+                e.preventDefault();
+                setMode('edit');
+            } else if (['1', '2', '3', '4', '5', '6', '7'].includes(key)) {
+                e.preventDefault();
+                const kpSelect = document.getElementById('keypointTypeSelect');
+                const kpIdx = parseInt(key) - 1;
+                if (kpIdx >= 0 && kpIdx < COCO_KP_ORDER.length) {
+                    kpSelect.value = COCO_KP_ORDER[kpIdx];
+                    if (currentMode === 'edit' && selectedItem && selectedItem.visibility !== undefined) {
+                        selectedItem.label = COCO_KP_ORDER[kpIdx];
+                    } else {
+                        setMode('point');
+                    }
+                    renderCanvas();
                 }
-                selectedItem = null;
-                editAction = 'none';
-                setMode('edit'); 
-                renderCanvas();
+            } else if (key === 'delete' || key === 'backspace') {
+                if (currentMode === 'edit' && selectedItem) {
+                    e.preventDefault();
+                    if (selectedItem.x1 !== undefined) {
+                        bboxes = bboxes.filter(box => box !== selectedItem);
+                    } else {
+                        keypoints = keypoints.filter(pt => pt !== selectedItem);
+                    }
+                    selectedItem = null;
+                    editAction = 'none';
+                    setMode('edit'); 
+                    renderCanvas();
+                }
             }
         });
 
@@ -428,46 +453,36 @@
         }
 
         async function executeImgDelete() {
-	    if (!selectedFile) return;
-	    if (!confirm(`⚠️ Permanently wipe local tracking files for '${selectedFile}'?`)) return;
+            if (!selectedFile) return;
+            if (!confirm(`⚠️ Permanently wipe local tracking files for '${selectedFile}'?`)) return;
 
-	    const oldFilename = selectedFile;
-	    
-	    // 1. Calculate the next file to focus BEFORE filtering out the current one
-	    const currentIndex = allImages.indexOf(oldFilename);
-	    let nextSelectedFile = null;
-	    
-	    if (allImages.length > 1) {
-		if (currentIndex === allImages.length - 1) {
-		    // If deleting the last item in the list, step backward
-		    nextSelectedFile = allImages[currentIndex - 1];
-		} else {
-		    // Otherwise, slide into the next available image entry
-		    nextSelectedFile = allImages[currentIndex + 1];
-		}
-	    }
+            const oldFilename = selectedFile;
+            const currentIndex = allImages.indexOf(oldFilename);
+            let nextSelectedFile = null;
+            
+            if (allImages.length > 1) {
+                if (currentIndex === allImages.length - 1) {
+                    nextSelectedFile = allImages[currentIndex - 1];
+                } else {
+                    nextSelectedFile = allImages[currentIndex + 1];
+                }
+            }
 
-	    // 2. Tell the file system to drop the asset file off the disk
-	    const response = await fetch('/delete_image', {
-		method: 'POST', 
-		headers: { 'Content-Type': 'application/json' }, 
-		body: JSON.stringify({ workspace: currentWorkspace, filename: oldFilename })
-	    });
+            const response = await fetch('/delete_image', {
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ workspace: currentWorkspace, filename: oldFilename })
+            });
 
-    if (response.ok) {
-        // 3. Clear the cache memory tracking state
-        delete localStore[oldFilename];
-        
-        // 4. Filter the image array directly in local browser memory (No folder popup needed!)
-        const updatedImages = allImages.filter(img => img !== oldFilename);
-        
-        // 5. Update state anchors and rebuild layout components
-        selectedFile = nextSelectedFile; 
-        rebuildWorkspaceGallery(updatedImages);
-    } else {
-        alert("❌ Error: The server encountered a problem processing the deletion request.");
-    }
-}
+            if (response.ok) {
+                delete localStore[oldFilename];
+                const updatedImages = allImages.filter(img => img !== oldFilename);
+                selectedFile = nextSelectedFile; 
+                rebuildWorkspaceGallery(updatedImages);
+            } else {
+                alert("❌ Error processing the deletion request.");
+            }
+        }
 
         function generateCOCORecords() {
             const rawTags = document.getElementById('imageTags').value;
@@ -570,10 +585,9 @@
 
             ctx.restore();
 
-            // High-visibility neon yellow crosshairs
             if (currentMouseCanvasX !== null && currentMouseCanvasY !== null && ['box', 'point', 'crop'].includes(currentMode)) {
                 ctx.save();
-                ctx.strokeStyle = 'rgba(234, 179, 8, 0.65)'; 
+                ctx.strokeStyle = 'rgba(124, 254, 12, 1.0)'; 
                 ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
                 ctx.beginPath(); ctx.moveTo(0, currentMouseCanvasY); ctx.lineTo(canvas.width, currentMouseCanvasY); ctx.stroke();
                 ctx.beginPath(); ctx.moveTo(currentMouseCanvasX, 0); ctx.lineTo(currentMouseCanvasX, canvas.height); ctx.stroke();
@@ -711,7 +725,7 @@
             if (!selectedFile) return; e.preventDefault();
             const coords = fetchRelativeCoords(e);
             const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-            const newScale = Math.min(Math.max(0.1, scale * zoomFactor), 20); 
+            const newScale = Math.min(Math.max(0.1, scale * zoomFactor), 100); 
 
             panX = coords.canvasX - (coords.canvasX - panX) * (newScale / scale);
             panY = coords.canvasY - (coords.canvasY - panY) * (newScale / scale);
