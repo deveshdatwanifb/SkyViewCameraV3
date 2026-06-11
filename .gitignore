@@ -70,3 +70,8 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# annotaitons
+*.txt
+*.pyc
+*.yaml
