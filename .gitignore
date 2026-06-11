@@ -75,3 +75,6 @@ Testing/
 *.txt
 *.pyc
 *.yaml
+
+# notebooks 
+*.ipynb
