@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>FyveBy Annotator (COCO Edition)</title>
+    <title>FyveBy Annotator (YOLO Edition)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         #canvasContainer canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
@@ -127,7 +127,7 @@
             </section>
 
             <section class="w-80 bg-[#1e1e24] border border-[#444746] rounded-xl p-3 flex flex-col overflow-hidden">
-                <h3 class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5] mb-2 border-b border-[#444746] pb-1">Live COCO Annotations Array</h3>
+                <h3 class="text-[11px] font-medium uppercase tracking-widest text-[#c4c7c5] mb-2 border-b border-[#444746] pb-1">Live YOLO Labels (.txt)</h3>
                 <pre id="jsonPreview" class="flex-grow overflow-y-auto font-mono text-[10px] text-[#a8c7fa] bg-[#131314] p-2.5 rounded-lg border border-[#444746] leading-tight"></pre>
             </section>
 
@@ -484,44 +484,40 @@
             }
         }
 
-        function generateCOCORecords() {
-            const rawTags = document.getElementById('imageTags').value;
-            const cleanTags = rawTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
-            let cocoAnnotations = [];
+        function buildYoloLines() {
+            // One YOLO pose line per box: `cls cx cy w h px1 py1 v1 ... px7 py7 v7`
+            // (box + keypoint coords normalized to image dimensions).
+            const w = imgInstance.naturalWidth || 1, h = imgInstance.naturalHeight || 1;
+            const lines = [];
 
-            bboxes.forEach((box, index) => {
-                let x = Math.round(box.x1), y = Math.round(box.y1);
-                let width = Math.round(box.x2 - box.x1), height = Math.round(box.y2 - box.y1);
-                let kpArray = new Array(COCO_KP_ORDER.length * 3).fill(0), countedKps = 0;
+            bboxes.forEach(box => {
+                const x1 = Math.min(box.x1, box.x2), x2 = Math.max(box.x1, box.x2);
+                const y1 = Math.min(box.y1, box.y2), y2 = Math.max(box.y1, box.y2);
+                const parts = [
+                    '0',
+                    ((x1 + x2) / 2 / w).toFixed(6),
+                    ((y1 + y2) / 2 / h).toFixed(6),
+                    ((x2 - x1) / w).toFixed(6),
+                    ((y2 - y1) / h).toFixed(6),
+                ];
 
+                const slots = Array.from({ length: COCO_KP_ORDER.length }, () => ['0.000000', '0.000000', '0']);
                 keypoints.forEach(kp => {
-                    if (kp.x >= box.x1 && kp.x <= box.x2 && kp.y >= box.y1 && kp.y <= box.y2) {
-                        let idx = COCO_KP_ORDER.indexOf(kp.label);
-                        if (idx !== -1) {
-                            kpArray[idx * 3] = Math.round(kp.x);
-                            kpArray[idx * 3 + 1] = Math.round(kp.y);
-                            kpArray[idx * 3 + 2] = kp.visibility;
-                            countedKps++;
-                        }
+                    if (kp.x >= x1 && kp.x <= x2 && kp.y >= y1 && kp.y <= y2) {
+                        const idx = COCO_KP_ORDER.indexOf(kp.label);
+                        if (idx !== -1) slots[idx] = [(kp.x / w).toFixed(6), (kp.y / h).toFixed(6), String(kp.visibility)];
                     }
                 });
-
-                cocoAnnotations.push({
-                    id: index + 1, category_id: 1, bbox: [x, y, width, height],
-                    area: width * height, keypoints: kpArray, num_keypoints: countedKps, iscrowd: 0
-                });
+                slots.forEach(s => parts.push(...s));
+                lines.push(parts.join(' '));
             });
 
-            return {
-                image: { file_name: selectedFile || "", width: imgInstance.naturalWidth, height: imgInstance.naturalHeight, tags: cleanTags },
-                annotations: cocoAnnotations
-            };
+            return lines.join('\n');
         }
 
         function updateJsonPreview() {
             if (!selectedFile) return;
-            const cocoStructure = generateCOCORecords();
-            document.getElementById('jsonPreview').textContent = JSON.stringify(cocoStructure.annotations, null, 2);
+            document.getElementById('jsonPreview').textContent = buildYoloLines() || '# no labels yet';
         }
 
         function renderCanvas() {
@@ -763,49 +759,61 @@
                 document.getElementById('annotationDate').innerText = data.date;
                 document.getElementById('imageTags').value = processedTags.join(', ');
                 renderCanvas();
-                alert('✅ Saved successfully into standard COCO records!');
+                alert('✅ Saved to YOLO label file!');
             } else {
                 alert("❌ Critical Error Saving File:\n\n" + data.message);
             }
         }
 
-        async function triggerS3CloudSync() {
+        async function triggerS3CloudSync(confirmDelete = false) {
             const s3Uri = document.getElementById('s3UriInput').value.trim();
             const syncButton = document.getElementById('s3SyncButton');
-            
-            if (!currentWorkspace) { 
-                alert("⚠️ Error: You must select a local workspace folder before trying to sync with cloud storage."); 
-                return; 
-            }
-            if (!s3Uri) { 
-                alert("⚠️ Error: An absolute S3 URI target destination path must be specified to trigger sync routine."); 
-                return; 
+
+            if (!s3Uri) {
+                alert("⚠️ Error: Enter an S3 URI (e.g. s3://your-bucket/optional-prefix) to sync.");
+                return;
             }
 
-            syncButton.disabled = true; 
+            syncButton.disabled = true;
             syncButton.innerText = "Syncing...";
-            
+
             try {
                 const response = await fetch('/sync_s3', {
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ 
-                        workspace: currentWorkspace,
-                        s3_uri: s3Uri
-                    })
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ s3_uri: s3Uri, confirm_delete: confirmDelete })
                 });
                 const data = await response.json();
-                
-                if (response.ok && data.status === 'success') {
+
+                if (!response.ok) {
+                    alert(`❌ S3 Sync Failure:\n\n${data.message || 'The server encountered an error.'}`);
+                    return;
+                }
+
+                if (data.status === 'pulled') {
+                    // First-time pull: adopt the freshly downloaded folder as the workspace.
+                    currentWorkspace = data.folder;
+                    document.getElementById('folderDisplay').innerText = data.folder;
+                    localStore = data.annotations || {};
+                    rebuildWorkspaceGallery(data.images || []);
+                    alert(`✅ Pulled from cloud!\n\n${data.message}`);
+                } else if (data.status === 'confirm_delete') {
+                    // Dangerous step: show the file-count warning and only delete on explicit OK.
+                    if (window.confirm(`⚠️ ${data.message}`)) {
+                        await triggerS3CloudSync(true);
+                    } else {
+                        alert("Sync finished — uploads applied, nothing deleted from S3.");
+                    }
+                } else if (data.status === 'success') {
                     alert(`✅ Cloud Sync Success!\n\n${data.message}`);
                 } else {
-                    alert(`❌ S3 Upload Failure:\n\n${data.message || 'The server encountered an error processing the upload sequence.'}`);
+                    alert(`❌ S3 Sync Failure:\n\n${data.message || 'Unknown error.'}`);
                 }
-            } catch (err) { 
-                alert(`❌ Network Connection Error: Could not reach the annotation backend controller server.`); 
-            } finally { 
-                syncButton.disabled = false; 
-                syncButton.innerText = "☁️ Sync Cloud"; 
+            } catch (err) {
+                alert(`❌ Network Connection Error: Could not reach the annotation backend controller server.`);
+            } finally {
+                syncButton.disabled = false;
+                syncButton.innerText = "☁️ Sync Cloud";
             }
         }
 

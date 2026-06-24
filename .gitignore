@@ -76,5 +76,8 @@ Testing/
 *.pyc
 *.yaml
 
-# notebooks 
+# notebooks
 *.ipynb
+
+# label_app: S3 buckets pulled locally (images + YOLO labels)
+ml/python_apps/label_app/datasets/
